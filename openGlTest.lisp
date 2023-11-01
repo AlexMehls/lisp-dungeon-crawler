@@ -1,18 +1,8 @@
-;(load ".sbclrc")
-
-;(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
-;                                       (user-homedir-pathname))))
-;  (format t "~a~%" quicklisp-init)
-;  (when (probe-file quicklisp-init)
-;    (load quicklisp-init)))
 (ql:quickload :png-read)
 (ql:quickload :cl-opengl)
 (ql:quickload :cl-cffi-gtk)
 (ql:quickload :3d-vectors)
 (ql:quickload :3d-matrices)
-
-;(ql:quickload :cl-png) ; missing headers (in windows)
-;(ql:quickload :gsll) ; missing headers (in windows)
 
 (defpackage :opengl-test
 (:use :gtk :gdk :gdk-pixbuf :gobject
@@ -70,8 +60,7 @@
       (gl:bind-texture :texture-2d 0))))
 
 (defmethod texture-delete ((obj texture))
-  (with-slots (texture-id) obj
-    (gl:delete-texture texture-id)))
+  (gl:delete-texture (slot-value obj 'texture-id)))
 
 (defvar *test-texture* (make-instance 'texture
                                  :file "textures/test.png"))
@@ -130,13 +119,13 @@
     (3d-matrices:nmlookat mat pos (3d-vectors:v- pos 3d-vectors:+vz+) 3d-vectors:+vy+)
     mat))
 
-(defmethod sprite-draw ((obj sprite))
+(defmethod sprite-draw ((obj sprite) vp-matrix)
   ; Todo: program member of sprite?
   (gl:use-program *texture-shader-program*)
 
   ; TODO: view-projection shouldn't be calculated multiple times
 
-  (gl:uniform-matrix-4fv *mvp-matrix-id* (vector (3d-matrices:marr4 (3d-matrices:m* (camera-view-projection-matrix *default-camera*) (sprite-model-matrix obj)))))
+  (gl:uniform-matrix-4fv *mvp-matrix-id* (vector (3d-matrices:marr4 (3d-matrices:m* vp-matrix (sprite-model-matrix obj)))))
 
   ; TODO: Render unsing indices
 
@@ -173,25 +162,6 @@
   (gl:use-program 0)
   (gl:flush))
 
-(defun draw-triangle (program vertex-buffer color-buffer)
-  (gl:use-program program)
-
-  (gl:enable-vertex-attrib-array 0)
-  (gl:bind-buffer :array-buffer vertex-buffer)
-  (gl:vertex-attrib-pointer 0 3 :float NIL 0 (cffi:null-pointer))
-
-  (gl:enable-vertex-attrib-array 1)
-  (gl:bind-buffer :array-buffer color-buffer)
-  (gl:vertex-attrib-pointer 1 3 :float NIL 0 (cffi:null-pointer))
-
-  (gl:draw-arrays :triangles 0 6)
-
-  (gl:disable-vertex-attrib-array 0)
-  (gl:disable-vertex-attrib-array 1)
-
-  (gl:use-program 0)
-  (gl:flush))
-
 (defconstant +plane-vertex-array+
         (let ((vertex-array (gl:alloc-gl-array :float 18)))
           ; 1st trig
@@ -213,30 +183,6 @@
           (setf (gl:glaref vertex-array 14) 0.0)
           (setf (gl:glaref vertex-array 15) 0.5)
           (setf (gl:glaref vertex-array 16) -0.5)
-          (setf (gl:glaref vertex-array 17) 0.0)
-          vertex-array))
-
-(defconstant +plane-vertex-array2+
-        (let ((vertex-array (gl:alloc-gl-array :float 18)))
-          ; 1st trig
-          (setf (gl:glaref vertex-array 0) -1.0)
-          (setf (gl:glaref vertex-array 1) -1.0)
-          (setf (gl:glaref vertex-array 2) 0.0)
-          (setf (gl:glaref vertex-array 3) -1.0)
-          (setf (gl:glaref vertex-array 4) 1.0)
-          (setf (gl:glaref vertex-array 5) 0.0)
-          (setf (gl:glaref vertex-array 6) 1.0)
-          (setf (gl:glaref vertex-array 7) -1.0)
-          (setf (gl:glaref vertex-array 8) 0.0)
-          ; 2nd trig
-          (setf (gl:glaref vertex-array 9) 1.0)
-          (setf (gl:glaref vertex-array 10) 1.0)
-          (setf (gl:glaref vertex-array 11) 0.0)
-          (setf (gl:glaref vertex-array 12) -1.0)
-          (setf (gl:glaref vertex-array 13) 1.0)
-          (setf (gl:glaref vertex-array 14) 0.0)
-          (setf (gl:glaref vertex-array 15) 1.0)
-          (setf (gl:glaref vertex-array 16) -1.0)
           (setf (gl:glaref vertex-array 17) 0.0)
           vertex-array))
 
@@ -285,24 +231,10 @@
         (fragment-shader (gl:create-shader :fragment-shader)))
     (gl:shader-source vertex-shader (uiop:read-file-string vertex-shader-file))
     (gl:compile-shader vertex-shader)
-
-    #+(or)
-    (format T "~A ~A ~A~%"
-            (gl:get-shader vertex-shader :compile-status)
-            (gl:get-shader vertex-shader :info-log-length)
-            (gl:get-shader-info-log vertex-shader))
-
     (gl:attach-shader program vertex-shader)
 
     (gl:shader-source fragment-shader (uiop:read-file-string fragment-shader-file))
     (gl:compile-shader fragment-shader)
-
-    #+(or)
-    (format T "~A ~A ~A~%"
-            (gl:get-shader fragment-shader :compile-status)
-            (gl:get-shader fragment-shader :info-log-length)
-            (gl:get-shader-info-log fragment-shader))
-
     (gl:attach-shader program fragment-shader)
 
     (gl:link-program program)
@@ -315,18 +247,11 @@
 
     program))
 
-
-;(context (gdk-window-create-gl-context window error))
-;    (gdk-gl-context-make-current context)
-
 (defun example-gl-area ()
   (within-main-loop
     (let ((window (gtk-window-new :toplevel))
           (area (make-instance 'gtk-gl-area))
-          program
           vao
-          vertex-buffer
-          color-buffer
           (test-sprite (make-instance 'sprite
                          :position (3d-vectors:vec 0 0)
                          :size (3d-vectors:vec 1 1)
@@ -342,42 +267,7 @@
                           (setf vao (gl:gen-vertex-array))
                           (gl:bind-vertex-array vao)
 
-                          (setf program (make-shader "shaders/simple_vertex_shader.vertexshader" "shaders/simple_fragment_shader.fragmentshader"))
                           (setf *texture-shader-program* (make-shader "shaders/texture_vertex_shader.vertexshader" "shaders/texture_fragment_shader.fragmentshader"))
-
-                          (let ((vertex-array (gl:alloc-gl-array :float 9))
-                                (color-array (gl:alloc-gl-array :float 9)))
-                            (setf (gl:glaref vertex-array 0) 0.0)
-                            (setf (gl:glaref vertex-array 1) 0.0)
-                            (setf (gl:glaref vertex-array 2) 0.0)
-
-                            (setf (gl:glaref vertex-array 3) 1.0)
-                            (setf (gl:glaref vertex-array 4) 0.0)
-                            (setf (gl:glaref vertex-array 5) 0.0)
-
-                            (setf (gl:glaref vertex-array 6) 0.0)
-                            (setf (gl:glaref vertex-array 7) 1.0)
-                            (setf (gl:glaref vertex-array 8) 0.0)
-
-                            (setf (gl:glaref color-array 0) 1.0)
-                            (setf (gl:glaref color-array 1) 1.0)
-                            (setf (gl:glaref color-array 2) 0.0)
-
-                            (setf (gl:glaref color-array 3) 1.0)
-                            (setf (gl:glaref color-array 4) 0.0)
-                            (setf (gl:glaref color-array 5) 1.0)
-
-                            (setf (gl:glaref color-array 6) 0.0)
-                            (setf (gl:glaref color-array 7) 1.0)
-                            (setf (gl:glaref color-array 8) 1.0)
-
-                            (setf vertex-buffer (gl:gen-buffer))
-                            (gl:bind-buffer :array-buffer vertex-buffer)
-                            (gl:buffer-data :array-buffer :static-draw vertex-array)
-
-                            (setf color-buffer (gl:gen-buffer))
-                            (gl:bind-buffer :array-buffer color-buffer)
-                            (gl:buffer-data :array-buffer :static-draw color-array))
                             
                           (setf *plane-vertex-buffer* (gl:gen-buffer))
                           (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
@@ -396,9 +286,7 @@
                           (gtk-gl-area-make-current area)
                           (gtk-gl-area-get-error area)
                           (gl:delete-vertex-arrays (list vao))
-                          (gl:delete-program program)
-                          ;(gl:delete-buffers '(vertex-buffer color-buffer))
-                          ;(gl:delete-buffers '(*plane-vertex-buffer* *plane-uv-buffer*))
+                          (gl:delete-program *texture-shader-program*)
                           (shutdown-opengl)))
       (g-signal-connect area "render"
                         (lambda (area context)
@@ -409,15 +297,15 @@
                                 (h (gtk-widget-get-allocated-height area)))
                             (when (and (> h 0) (> w 0))
                                 (setf (slot-value *default-camera* 'screen-ratio) (/ w h))))
-                          ;(draw-triangle program vertex-buffer color-buffer)
-                          (sprite-draw test-sprite)
+                          (let ((vp-mat (camera-view-projection-matrix *default-camera*)))
+                            (sprite-draw test-sprite vp-mat))
                           NIL))
       (g-signal-connect window "destroy"
                         (lambda (widget)
                           (declare (ignore widget))
                           (leave-gtk-main)))
       (gtk-widget-show-all window)))
-  (sb-thread:release-foreground)
+  (sb-thread:release-foreground) ; For better debug output
   (gtk:join-gtk-main))
 
 (example-gl-area)
