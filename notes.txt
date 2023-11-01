@@ -1,0 +1,4 @@
+Shaders:
+    1) RGB only
+    2) RGBA, only full transparency
+    3) RGBA, with blending
