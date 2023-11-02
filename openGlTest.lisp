@@ -1,3 +1,7 @@
+(require :asdf)
+(push "./" asdf:*central-registry*)
+(asdf:load-system :textures)
+
 (ql:quickload :png-read)
 (ql:quickload :cl-opengl)
 (ql:quickload :cl-cffi-gtk)
@@ -6,73 +10,12 @@
 
 (defpackage :opengl-test
 (:use :gtk :gdk :gdk-pixbuf :gobject
-        :glib :gio :pango :cairo :common-lisp))
+        :glib :gio :pango :cairo :common-lisp :textures))
 
 (in-package :opengl-test)
 
-(defclass texture ()
-    ((file :initarg :file
-           :reader texture-file)
-     (texture-id :reader texture-texture-id)))
-
-(defmethod texture-load ((obj texture))
-  ; TODO: replace with nested loops?
-  (labels ((array-flatten (in)
-                          (let ((out (make-array (array-total-size in) :fill-pointer 0 :element-type 'unsigned-byte)))
-                            (destructuring-bind (x y z) (array-dimensions in)
-                              (dotimes (i x)
-                                      (dotimes (j y)
-                                              (dotimes (k z)
-                                                      (vector-push (aref in i j k) out)))))
-                            out)))
-    (format t "Loading texture from file ~a~%" (texture-file obj))
-    (with-slots (file texture-id) obj
-      (setf texture-id (car (gl:gen-textures 1)))
-      (gl:bind-texture :texture-2d texture-id)
-      (gl:pixel-store :unpack-alignment 1) ; alternatively: manually align data so that each row is a multiple of 4 Byte
-      (let* ((png (png-read:read-png-file file))
-            (data (array-flatten (png-read:image-data png)))
-            (width (png-read:width png))
-            (height (png-read:height png))
-            (color-type (png-read:colour-type png)))
-        (format t "Color type: ~a~%" color-type)
-        (format t "Data type is ~a~%" (type-of data))
-        (format t "Size: ~a, ~a~%" width height)
-        ;(format t "Data:~%~a~%" data)
-        (case color-type
-          (:truecolor (gl:tex-image-2d :texture-2d 0 :rgb width height 0 :rgb :unsigned-byte data)
-                      (format t "RGB-mode~%"))
-          (:indexed-colour (gl:tex-image-2d :texture-2d 0 :rgb width height 0 :rgb :unsigned-byte data)
-                      (format t "RGB-mode~%"))
-          (:truecolor-alpha (gl:tex-image-2d :texture-2d 0 :rgba width height 0 :rgba :unsigned-byte data)
-                            (format t "RGBA-mode~%"))
-          (otherwise (format t "Error: Color type not implemented"))))
-      ;(gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
-      ;(gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
-      (gl:tex-parameter :texture-2d :texture-wrap-s :clamp-to-edge)
-      (gl:tex-parameter :texture-2d :texture-wrap-t :clamp-to-edge)
-      (gl:tex-parameter :texture-2d :texture-mag-filter :nearest)
-      ;(gl:tex-parameter :texture-2d :texture-min-filter :nearest)
-      ;(gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-      ;(gl:tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
-      (gl:tex-parameter :texture-2d :texture-min-filter :nearest-mipmap-nearest)
-      (gl:generate-mipmap :texture-2d)
-      (gl:bind-texture :texture-2d 0))))
-
-(defmethod texture-delete ((obj texture))
-  (gl:delete-texture (slot-value obj 'texture-id)))
-
-(defvar *test-texture* (make-instance 'texture
-                                 :file "textures/test.png"))
-
-(defvar *test-texture2* (make-instance 'texture
-                                 :file "textures/test2.png"))
-
-(defvar *missing-texture* (make-instance 'texture
-                                 :file "textures/missing_texture.png"))
-
 (defvar *plane-vertex-buffer*)
-(defvar *plane-uv-buffer*)
+(defvar *plane-index-buffer*)
 (defvar *texture-shader-program*)
 (defvar *mvp-matrix-id*)
 
@@ -123,19 +66,16 @@
   ; Todo: program member of sprite?
   (gl:use-program *texture-shader-program*)
 
-  ; TODO: view-projection shouldn't be calculated multiple times
-
   (gl:uniform-matrix-4fv *mvp-matrix-id* (vector (3d-matrices:marr4 (3d-matrices:m* vp-matrix (sprite-model-matrix obj)))))
 
-  ; TODO: Render unsing indices
-
   (gl:enable-vertex-attrib-array 0)
-  (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
-  (gl:vertex-attrib-pointer 0 3 :float NIL 0 (cffi:null-pointer))
-
   (gl:enable-vertex-attrib-array 1)
-  (gl:bind-buffer :array-buffer *plane-uv-buffer*)
-  (gl:vertex-attrib-pointer 1 2 :float NIL 0 (cffi:null-pointer))
+
+  (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
+  (gl:vertex-attrib-pointer 0 3 :float NIL (* 5 (cffi:foreign-type-size :float)) (cffi:null-pointer))
+  (gl:vertex-attrib-pointer 1 2 :float NIL (* 5 (cffi:foreign-type-size :float)) (cffi:inc-pointer (cffi:null-pointer) (* 3 (cffi:foreign-type-size :float))))
+
+  (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
 
   ; (1) Use for proper partial transparency (manual sorting of draw order required)
   ;(gl:disable :depth-test)
@@ -146,9 +86,9 @@
 
   (gl:active-texture :texture0)
   (gl:bind-texture :texture-2d (texture-texture-id (sprite-texture obj)))
-  ;(format t "Drawing sprite at ~a~%" (sprite-position obj))
 
-  (gl:draw-arrays :triangles 0 6)
+  ; null-array -> uses currently bound element-array-buffer
+  (gl:draw-elements :triangles (gl:make-null-gl-array :unsigned-short) :count 6)
 
   (gl:disable-vertex-attrib-array 0)
   (gl:disable-vertex-attrib-array 1)
@@ -163,56 +103,43 @@
   (gl:flush))
 
 (defconstant +plane-vertex-array+
-        (let ((vertex-array (gl:alloc-gl-array :float 18)))
-          ; 1st trig
-          (setf (gl:glaref vertex-array 0) -0.5)
-          (setf (gl:glaref vertex-array 1) -0.5)
-          (setf (gl:glaref vertex-array 2) 0.0)
-          (setf (gl:glaref vertex-array 3) -0.5)
-          (setf (gl:glaref vertex-array 4) 0.5)
-          (setf (gl:glaref vertex-array 5) 0.0)
+        (let ((vertex-array (gl:alloc-gl-array :float 20)))
+          (setf (gl:glaref vertex-array 0) -0.5) ; x
+          (setf (gl:glaref vertex-array 1) -0.5) ; y
+          (setf (gl:glaref vertex-array 2) 0.0)  ; z
+          (setf (gl:glaref vertex-array 3) 1.0)  ; u
+          (setf (gl:glaref vertex-array 4) 0.0)  ; v
+               
+          (setf (gl:glaref vertex-array 5) -0.5)
           (setf (gl:glaref vertex-array 6) 0.5)
-          (setf (gl:glaref vertex-array 7) -0.5)
+          (setf (gl:glaref vertex-array 7) 0.0)
           (setf (gl:glaref vertex-array 8) 0.0)
-          ; 2nd trig
-          (setf (gl:glaref vertex-array 9) 0.5)
+          (setf (gl:glaref vertex-array 9) 0.0)
+               
           (setf (gl:glaref vertex-array 10) 0.5)
-          (setf (gl:glaref vertex-array 11) 0.0)
-          (setf (gl:glaref vertex-array 12) -0.5)
-          (setf (gl:glaref vertex-array 13) 0.5)
-          (setf (gl:glaref vertex-array 14) 0.0)
+          (setf (gl:glaref vertex-array 11) -0.5)
+          (setf (gl:glaref vertex-array 12) 0.0)
+          (setf (gl:glaref vertex-array 13) 1.0)
+          (setf (gl:glaref vertex-array 14) 1.0)
+               
           (setf (gl:glaref vertex-array 15) 0.5)
-          (setf (gl:glaref vertex-array 16) -0.5)
+          (setf (gl:glaref vertex-array 16) 0.5)
           (setf (gl:glaref vertex-array 17) 0.0)
+          (setf (gl:glaref vertex-array 18) 0.0)
+          (setf (gl:glaref vertex-array 19) 1.0)
           vertex-array))
 
-(defconstant +plane-uv-array+
-        (let ((uv-array (gl:alloc-gl-array :float 12)))
+(defconstant +plane-index-array+
+        (let ((index-array (gl:alloc-gl-array :unsigned-short 6)))
           ; 1st trig
-          (setf (gl:glaref uv-array 0) 1.0)
-          (setf (gl:glaref uv-array 1) 0.0)
-          (setf (gl:glaref uv-array 2) 0.0)
-          (setf (gl:glaref uv-array 3) 0.0)
-          (setf (gl:glaref uv-array 4) 1.0)
-          (setf (gl:glaref uv-array 5) 1.0)
+          (setf (gl:glaref index-array 0) 0)
+          (setf (gl:glaref index-array 1) 1)
+          (setf (gl:glaref index-array 2) 2)
           ; 2nd trig
-          (setf (gl:glaref uv-array 6) 0.0)
-          (setf (gl:glaref uv-array 7) 1.0)
-          (setf (gl:glaref uv-array 8) 0.0)
-          (setf (gl:glaref uv-array 9) 0.0)
-          (setf (gl:glaref uv-array 10) 1.0)
-          (setf (gl:glaref uv-array 11) 1.0)
-          uv-array))
-
-(defun load-textures ()
-  (texture-load *test-texture*)
-  (texture-load *missing-texture*)
-  (texture-load *test-texture2*))
-
-(defun delete-textures ()
-  (texture-delete *test-texture*)
-  (texture-delete *missing-texture*)
-  (texture-delete *test-texture2*))
+          (setf (gl:glaref index-array 3) 3)
+          (setf (gl:glaref index-array 4) 1)
+          (setf (gl:glaref index-array 5) 2)
+          index-array))
 
 (defun setup-opengl ()
   ;(gl:enable :texture-2d)
@@ -273,9 +200,9 @@
                           (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
                           (gl:buffer-data :array-buffer :static-draw +plane-vertex-array+)
 
-                          (setf *plane-uv-buffer* (gl:gen-buffer))
-                          (gl:bind-buffer :array-buffer *plane-uv-buffer*)
-                          (gl:buffer-data :array-buffer :static-draw +plane-uv-array+)
+                          (setf *plane-index-buffer* (gl:gen-buffer))
+                          (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
+                          (gl:buffer-data :element-array-buffer :static-draw +plane-index-array+)
 
                           (setf *mvp-matrix-id* (gl:get-uniform-location *texture-shader-program* "MVP"))
                           
