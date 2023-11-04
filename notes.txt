@@ -2,3 +2,31 @@ Shaders:
     1) RGB only
     2) RGBA, only full transparency
     3) RGBA, with blending
+
+(let ((delta-time (/ 1 240))
+          (start-time (local-time:now)))
+      (loop while (> (gtk-main-level) 0) do
+              ; TODO: sync with render thread
+
+              ;(g-signal-emit area "render")
+              (let ((move-dist (* 2 delta-time)))
+                (when (get-key-hold "w")
+                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 move-dist))))
+                (when (get-key-hold "a")
+                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec (- move-dist) 0))))
+                (when (get-key-hold "s")
+                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 (- move-dist)))))
+                (when (get-key-hold "d")
+                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec move-dist 0))))
+            
+                ;(when *keys-pressed*
+                ;      (format t "Pressed: ~a~%" *keys-pressed*))
+                (setf *keys-pressed* NIL)
+
+                ; REDO TIME MEASUREMENT
+                (let* ((end-time (local-time:now))
+                       (wait-time (- delta-time (local-time:timestamp-difference end-time start-time))))
+                  (format t "Waiting for: ~a~%" wait-time)
+                  (when (> wait-time 0)
+                      (sleep wait-time)))
+                (setf start-time (local-time:now)))))

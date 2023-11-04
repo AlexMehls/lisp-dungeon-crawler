@@ -95,8 +95,6 @@
                 (pos (3d-vectors:v+ (3d-vectors:vec i j) (tile-array-offset obj))))
             (tile-draw tile pos vp-matrix)))))))
 
-(defvar *default-camera* (make-instance 'camera :position (3d-vectors:vec 0 0) :screen-size 7))
-
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
 
@@ -117,17 +115,19 @@
           (fixed-container (gtk-fixed-new))
           (fps-counter (gtk-label-new "FPS:"))
           vao
+          (prev-time (local-time:now))
+          (curr-time (local-time:now))
+          (fps-vals (queues:make-queue :simple-queue))
+          (camera (make-instance 'camera :position (3d-vectors:vec 0 0) :screen-size 11))
           (test-sprite (make-instance 'sprite
                          :position (3d-vectors:vec 0 0)
                          :size (3d-vectors:vec 1 1)
                          :rotation 0
                          :texture *test-texture2*))
           (test-tiles (make-instance 'tile-array
-                        :tiles (make-array '(7 5) :initial-element (make-instance 'tile))
-                        :offset (3d-vectors:vec -3 -2)))
-          (prev-time (local-time:now))
-          (curr-time (local-time:now))
-          (fps-vals (queues:make-queue :simple-queue)))
+                        :tiles (make-array '(9 9) :initial-element (make-instance 'tile
+                                                                     :texture *test-floor-texture*))
+                        :offset (3d-vectors:vec -4 -4))))
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
@@ -160,8 +160,7 @@
                           ;(format t "Time since last render: ~ams~%" (* 1000 (local-time:timestamp-difference curr-time prev-time)))
                           ;(format t "FPS: ~a~%" (/ 1 (local-time:timestamp-difference curr-time prev-time)))
 
-                          (let* ((delta-time (local-time:timestamp-difference curr-time prev-time))
-                                 (move-dist (* 2 delta-time)))
+                          (let* ((delta-time (local-time:timestamp-difference curr-time prev-time)))
                             (queues:qpush fps-vals (/ 1 delta-time))
                             (when (> (queues:qsize fps-vals) 60)
                                   (queues:qpop fps-vals))
@@ -172,22 +171,28 @@
                                 fps-vals)
                               (setf avg-fps (/ avg-fps (queues:qsize fps-vals)))
                               (gtk-label-set-text fps-counter (concatenate 'string "FPS: " (write-to-string (round avg-fps)))))
+
+                            (let* ((delta-time (min delta-time (/ 1 30))) ; game starts to slow down below 30 fps
+                                    (move-dist (* 4 delta-time)))
+                              (when (get-key-hold "w")
+                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 move-dist))))
+                              (when (get-key-hold "a")
+                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec (- move-dist) 0))))
+                              (when (get-key-hold "s")
+                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 (- move-dist)))))
+                              (when (get-key-hold "d")
+                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec move-dist 0))))
                           
-                            ;(when *keys-pressed*
-                            ;      (format t "Pressed: ~a~%" *keys-pressed*))
-                            (when (get-key-hold "w")
-                                  (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 move-dist))))
-                            (when (get-key-hold "a")
-                                  (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec (- move-dist) 0))))
-                            (when (get-key-hold "s")
-                                  (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 (- move-dist)))))
-                            (when (get-key-hold "d")
-                                  (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec move-dist 0)))))
+                              ;(when *keys-pressed*
+                              ;      (format t "Pressed: ~a~%" *keys-pressed*))
+                              ))
+                          
+                          (setf (camera-position camera) (sprite-position test-sprite))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
                           
-                          (let ((vp-mat (camera-view-projection-matrix *default-camera*)))
+                          (let ((vp-mat (camera-view-projection-matrix camera)))
                             (tile-array-draw test-tiles vp-mat)
                             (sprite-draw test-sprite vp-mat))
                           
@@ -199,7 +204,7 @@
                         (lambda (area width height)
                           (declare (ignore area))
                           (when (and (> height 0) (> width 0))
-                              (setf (slot-value *default-camera* 'screen-ratio) (/ width height)))
+                              (setf (slot-value camera 'screen-ratio) (/ width height)))
                           NIL))
       (g-signal-connect window "destroy"
                         (lambda (widget)
@@ -225,7 +230,9 @@
                           ;(format t "Keys: ~a~%" *keys-held*)
                           ))
       (gtk-widget-show-all window)))
-  (sb-thread:release-foreground) ; For better debug output
+  
+  ;(sleep 0.001) ; wait until gtk loop starts
+  (sb-thread:release-foreground) ; For better debug output in gtk-thread
   (gtk:join-gtk-main))
 
 (main)
