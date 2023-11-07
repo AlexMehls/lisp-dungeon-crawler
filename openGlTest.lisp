@@ -95,6 +95,52 @@
                 (pos (3d-vectors:v+ (3d-vectors:vec i j) (tile-array-offset obj))))
             (tile-draw tile pos vp-matrix)))))))
 
+(defun make-room (pos)
+  (let* ((w 11)
+         (h 9)
+         (tiles (make-array `(,w ,h) :initial-element (make-instance 'tile)))
+         (floor-tile (make-instance 'tile :texture *test-floor-texture*))
+         (wall-tile  (make-instance 'tile :texture *test-wall-texture*)))
+    (dotimes (x w)
+      (dotimes (y h)
+        (if (or (= x 0) (= x (1- w)) (= y 0) (= y (1- h)))
+            (setf (aref tiles x y) wall-tile)
+            (setf (aref tiles x y) floor-tile))))
+    
+    (make-instance 'tile-array
+      :tiles tiles
+      :offset pos)))
+
+(defclass collider ()
+    ((pos :initarg :position
+          :accessor collider-position
+          :initform (3d-vectors:vec 0 0))))
+
+(defclass rectangle-collider (collider)
+    ((size :initarg :size
+           :accessor rectangle-collider-size
+           :initform (3d-vectors:vec 1 1))
+     (rot :initarg :rotation
+          :accessor rectangle-collider-rotation
+          :initform 0)))
+
+(defclass circle-collider (collider)
+    ((radius :initarg :radius
+             :accessor circle-collider-radius
+             :initform 0.5)))
+
+(defmethod collider-get-collision ((col1 circle-collider) (col2 circle-collider))
+  (< (3d-vectors:vdistance (collider-position col1) (collider-position col2)) (+ (circle-collider-radius col1) (circle-collider-radius col2))))
+
+(defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
+  (format t "Collision not implemented~%"))
+
+(defmethod collider-get-collision ((col1 circle-collider) (col2 rectangle-collider))
+  (format t "Collision not implemented~%"))
+
+(defmethod collider-get-collision ((col1 rectangle-collider) (col2 circle-collider))
+  (format t "Collision not implemented~%"))
+
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
 
@@ -124,10 +170,9 @@
                          :size (3d-vectors:vec 1 1)
                          :rotation 0
                          :texture *test-texture2*))
-          (test-tiles (make-instance 'tile-array
-                        :tiles (make-array '(9 9) :initial-element (make-instance 'tile
-                                                                     :texture *test-floor-texture*))
-                        :offset (3d-vectors:vec -4 -4))))
+          (sprite-collider (make-instance 'circle-collider))
+          (test-collider (make-instance 'circle-collider :position (3d-vectors:vec 2 2)))
+          (test-tiles (make-room (3d-vectors:vec -5 -4))))
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
@@ -188,6 +233,9 @@
                               ))
                           
                           (setf (camera-position camera) (sprite-position test-sprite))
+                          (setf (collider-position sprite-collider) (sprite-position test-sprite))
+                          (when (collider-get-collision sprite-collider test-collider)
+                                (format t "Collision!~%"))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
@@ -198,7 +246,7 @@
                           
                           (setf *keys-pressed* NIL)
                           (setf prev-time curr-time)
-                          (gtk-gl-area-queue-render area) ; maybe render manually?
+                          (gtk-gl-area-queue-render area) ; maybe render manually? -> gdk frame clock not working
                           NIL))
       (g-signal-connect area "resize"
                         (lambda (area width height)
