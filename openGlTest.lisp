@@ -116,6 +116,16 @@
           :accessor collider-position
           :initform (3d-vectors:vec 0 0))))
 
+(defclass circle-collider (collider)
+    ((radius :initarg :radius
+             :accessor circle-collider-radius
+             :initform 0.5)))
+
+(defclass aabb-collider (collider)
+    ((size :initarg :size
+           :accessor rectangle-collider-size
+           :initform (3d-vectors:vec 1 1))))
+
 (defclass rectangle-collider (collider)
     ((size :initarg :size
            :accessor rectangle-collider-size
@@ -124,21 +134,58 @@
           :accessor rectangle-collider-rotation
           :initform 0)))
 
-(defclass circle-collider (collider)
-    ((radius :initarg :radius
-             :accessor circle-collider-radius
-             :initform 0.5)))
-
 (defmethod collider-get-collision ((col1 circle-collider) (col2 circle-collider))
   (< (3d-vectors:vdistance (collider-position col1) (collider-position col2)) (+ (circle-collider-radius col1) (circle-collider-radius col2))))
 
-(defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
+(defmethod collider-get-collision ((col1 circle-collider) (col2 aabb-collider))
   (format t "Collision not implemented~%"))
+
+(defmethod point-in-rectangle ((point 3d-vectors:vec2) (rect rectangle-collider))
+  (with-slots (pos size rot) rect
+    (let* ((cos-rot (cos rot))
+           (sin-rot (sin rot))
+           (rot-mat (3d-matrices:mat2 `(,cos-rot ,(- sin-rot) ,sin-rot ,cos-rot)))
+           (corner (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v/ size 2))))
+           (edge1 (3d-vectors:vx size))
+           (edge2 (3d-vectors:vy size))
+           (corner-point-dist (3d-vectors:vdistance point corner))
+           (prod1 (* corner-point-dist edge1))
+           (prod2 (* corner-point-dist edge2)))
+      (and (<= 0 prod1) (<= prod1 (* edge1 edge1)) (<= 0 prod2) (<= prod2 (* edge2 edge2))))))
+
+(defmethod line-intersect-circle ((circle circle-collider) A B)
+  ;TODO
+  )
 
 (defmethod collider-get-collision ((col1 circle-collider) (col2 rectangle-collider))
   (format t "Collision not implemented~%"))
 
+(defmethod collider-get-collision ((col1 aabb-collider) (col2 circle-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 aabb-collider) (col2 aabb-collider))
+  (with-slots ((pos1 pos) (size1 size)) col1
+    (with-slots ((pos2 pos) (size2 size)) col2
+      (let ((x1 (3d-vectors:vx pos1))
+            (y1 (3d-vectors:vy pos1))
+            (w1 (3d-vectors:vx size1))
+            (h1 (3d-vectors:vy size1))
+            (x2 (3d-vectors:vx pos2))
+            (y2 (3d-vectors:vy pos2))
+            (w2 (3d-vectors:vx size2))
+            (h2 (3d-vectors:vy size2)))
+        (and (> (+ x1 w1) x2) (< x1 (+ x2 w2)) (> (+ y1 h1) y2) (< y1 (+ y2 h2)))))))
+
+(defmethod collider-get-collision ((col1 aabb-collider) (col2 rectangle-collider))
+  (format t "Collision not implemented~%"))
+
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 circle-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 rectangle-collider) (col2 aabb-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
   (format t "Collision not implemented~%"))
 
 (defvar *keys-held* NIL)
@@ -170,14 +217,13 @@
                          :size (3d-vectors:vec 1 1)
                          :rotation 0
                          :texture *test-texture2*))
-          (sprite-collider (make-instance 'circle-collider))
-          (test-collider (make-instance 'circle-collider :position (3d-vectors:vec 2 2)))
+          (sprite-collider (make-instance 'aabb-collider))
+          (test-collider (make-instance 'aabb-collider :position (3d-vectors:vec 2 2)))
           (test-tiles (make-room (3d-vectors:vec -5 -4))))
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
       (gtk-fixed-put fixed-container fps-counter 0 0)
-      ;(gtk-overlay-add-overlay overlay fps-counter)
       (gtk-widget-add-events window :key-press-mask)
       (g-signal-connect area "realize"
                         (lambda (widget)
@@ -206,6 +252,8 @@
                           ;(format t "FPS: ~a~%" (/ 1 (local-time:timestamp-difference curr-time prev-time)))
 
                           (let* ((delta-time (local-time:timestamp-difference curr-time prev-time)))
+                            (when (= delta-time 0)
+                                (setf delta-time (/ 1 60)))
                             (queues:qpush fps-vals (/ 1 delta-time))
                             (when (> (queues:qsize fps-vals) 60)
                                   (queues:qpop fps-vals))
