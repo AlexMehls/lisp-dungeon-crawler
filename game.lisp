@@ -127,13 +127,15 @@
           (camera (make-instance 'camera :position (3d-vectors:vec 0 0) :screen-size 11))
           (test-sprite (make-instance 'sprite
                          :position (3d-vectors:vec 0 0)
-                         :size (3d-vectors:vec 1 1)
+                         ;:size (3d-vectors:vec 1 1)
+                         :size (3d-vectors:vec2 0.5 2)
                          :rotation 0
-                         ;:texture *test-texture2*
-                         :texture *test-circle*))
+                         :texture *test-texture2*
+                         ;:texture *test-circle*
+                         ))
           (move-speed 1)
-          ;(sprite-collider (make-instance 'aabb-collider))
-          (sprite-collider (make-instance 'circle-collider))
+          (sprite-collider (make-instance 'aabb-collider :size (3d-vectors:vec2 0.5 2)))
+          ;(sprite-collider (make-instance 'circle-collider))
 
           (test-collider1 (make-instance 'aabb-collider :position (3d-vectors:vec 2 2)))
           (collider-sprite1 (make-instance 'sprite :position (3d-vectors:vec 2 2)))

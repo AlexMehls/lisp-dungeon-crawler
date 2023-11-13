@@ -93,6 +93,7 @@
               (< (3d-vectors:vdistance pos D) radius))))))
 
 ;; Get collisions
+;; Returns true if colliders are overlapping
 
 (defmethod collider-get-collision ((col1 circle-collider) (col2 circle-collider))
   (< (3d-vectors:vdistance (collider-position col1) (collider-position col2)) (+ (circle-collider-radius col1) (circle-collider-radius col2))))
@@ -112,6 +113,7 @@
                (left (- aabb-x half-w))
                (top (+ aabb-y half-h))
                (bottom (- aabb-y half-h)))
+          ;; TODO: swap not-or to and
           (not (or (>= circle-x (+ right radius))
                    (<= circle-x (- left radius))
                    (>= circle-y (+ top radius))
@@ -147,18 +149,15 @@
 (defmethod collider-get-collision ((col1 aabb-collider) (col2 aabb-collider))
   (with-slots ((pos1 pos) (size1 size)) col1
     (with-slots ((pos2 pos) (size2 size)) col2
-      (let ((x1 (3d-vectors:vx pos1))
-            (y1 (3d-vectors:vy pos1))
-            (w1 (3d-vectors:vx size1))
-            (h1 (3d-vectors:vy size1))
-            (x2 (3d-vectors:vx pos2))
-            (y2 (3d-vectors:vy pos2))
-            (w2 (3d-vectors:vx size2))
-            (h2 (3d-vectors:vy size2)))
-        (and (> (+ x1 w1) x2) (< x1 (+ x2 w2)) (> (+ y1 h1) y2) (< y1 (+ y2 h2)))))))
+      (let ((dx (- (3d-vectors:vx pos1) (3d-vectors:vx pos2)))
+            (dy (- (3d-vectors:vy pos1) (3d-vectors:vy pos2)))
+            (sw (/ (+ (3d-vectors:vx size1) (3d-vectors:vx size2)) 2))
+            (sh (/ (+ (3d-vectors:vy size1) (3d-vectors:vy size2)) 2)))
+        (and (> (+ dx sw) 0) (< (- dx sw) 0) (> (+ dy sh) 0) (< (- dy sh) 0))))))
 
 (defmethod collider-get-collision ((col1 aabb-collider) (col2 rectangle-collider))
-  (format t "Collision not implemented~%"))
+  ;(format t "Collision not implemented~%")
+  NIL)
 
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 circle-collider))
   (collider-get-collision col2 col1))
@@ -167,4 +166,12 @@
   (collider-get-collision col2 col1))
 
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
-  (format t "Collision not implemented~%"))
+  ;(format t "Collision not implemented~%")
+  NIL)
+
+;; Collision resolution
+;; Takes two colliders as input, as well as an atempted movement (of the first collider)
+;; Returns the permissible movement
+
+(defmethod collider-resolve-collision ((col1 aabb-collider) (col2 aabb-collider) delta-pos)
+  NIL)

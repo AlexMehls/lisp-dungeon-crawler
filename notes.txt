@@ -8,6 +8,9 @@ gtk4
 circle-aabb collision early return
 replace distance with square of distance
 
+Bugs:
+replace constants with defvar/defparameter
+
 (let ((delta-time (/ 1 240))
           (start-time (local-time:now)))
       (loop while (> (gtk-main-level) 0) do
