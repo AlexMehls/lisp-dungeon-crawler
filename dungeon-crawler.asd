@@ -1,4 +1,5 @@
 (asdf:defsystem "dungeon-crawler"
   :depends-on ("cl-opengl" "cl-cffi-gtk" "png-read" "3d-matrices" "3d-matrices" "local-time" "queues" "queues.simple-queue")
   :components ((:file "textures")
-               (:file "game" :depends-on ("textures"))))
+               (:file "collision")
+               (:file "game" :depends-on ("textures" "collision"))))
