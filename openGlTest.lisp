@@ -2,13 +2,13 @@
 (push "./" asdf:*central-registry*)
 (asdf:load-system :textures)
 
-(ql:quickload :png-read)
-(ql:quickload :cl-opengl)
-(ql:quickload :cl-cffi-gtk)
-(ql:quickload :3d-vectors)
-(ql:quickload :3d-matrices)
-(ql:quickload :local-time)
-(ql:quickload :queues)
+(asdf:load-system :png-read)
+(asdf:load-system :cl-opengl)
+(asdf:load-system :cl-cffi-gtk)
+(asdf:load-system :3d-vectors)
+(asdf:load-system :3d-matrices)
+(asdf:load-system :local-time)
+(asdf:load-system :queues)
 (asdf:oos 'asdf:load-op :queues.simple-queue)
 
 (defpackage :opengl-test
@@ -134,31 +134,108 @@
           :accessor rectangle-collider-rotation
           :initform 0)))
 
+(defclass rectangle-points ()
+    ((A :initarg :A)
+     (B :initarg :B)
+     (C :initarg :C)
+     (D :initarg :D)))
+
+(defun make-rotated-rectangle-points (pos size rot)
+  (let* ((cos-rot (cos rot))
+         (sin-rot (sin rot))
+         (rot-mat (3d-matrices:mat2 `(,cos-rot ,(- sin-rot) ,sin-rot ,cos-rot)))
+         (half-size (3d-vectors:v/ size 2))
+         (A (3d-vectors:v+ pos (3d-matrices:m* rot-mat half-size)))
+         (B (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 1 -1)))))
+         (C (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 -1 -1)))))
+         (D (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 -1 1))))))
+    (make-instance 'rectangle-points :A A :B B :C C :D D)))
+
+(defun make-rectangle-points (pos size)
+  (let* ((half-size (3d-vectors:v/ size 2))
+         (A (3d-vectors:v+ pos half-size))
+         (B (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 1 -1))))
+         (C (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 -1 -1))))
+         (D (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 -1 1)))))
+    (make-instance 'rectangle-points :A A :B B :C C :D D)))
+
 (defmethod collider-get-collision ((col1 circle-collider) (col2 circle-collider))
   (< (3d-vectors:vdistance (collider-position col1) (collider-position col2)) (+ (circle-collider-radius col1) (circle-collider-radius col2))))
 
+; TODO: maybe optimise -> early return
 (defmethod collider-get-collision ((col1 circle-collider) (col2 aabb-collider))
-  (format t "Collision not implemented~%"))
+  (with-slots ((circle-pos pos) radius) col1
+    (with-slots ((aabb-pos pos) size) col2
+      (with-slots (A B C D) (make-rectangle-points aabb-pos size)
+        (let* ((circle-x (3d-vectors:vx circle-pos))
+               (circle-y (3d-vectors:vy circle-pos))
+               (aabb-x (3d-vectors:vx aabb-pos))
+               (aabb-y (3d-vectors:vy aabb-pos))
+               (half-w (/ (3d-vectors:vx size) 2))
+               (half-h (/ (3d-vectors:vy size) 2))
+               (right (+ aabb-x half-w))
+               (left (- aabb-x half-w))
+               (top (+ aabb-y half-h))
+               (bottom (- aabb-y half-h)))
+          (not (or (>= circle-x (+ right radius))
+                   (<= circle-x (- left radius))
+                   (>= circle-y (+ top radius))
+                   (<= circle-y (- bottom radius))
+                   (and (>= circle-x right)
+                        (>= circle-y top)
+                        (>= (3d-vectors:vdistance A circle-pos) radius))
+                   (and (>= circle-x right)
+                        (<= circle-y bottom)
+                        (>= (3d-vectors:vdistance B circle-pos) radius))
+                   (and (<= circle-x left)
+                        (<= circle-y bottom)
+                        (>= (3d-vectors:vdistance C circle-pos) radius))
+                   (and (<= circle-x left)
+                        (>= circle-y top)
+                        (>= (3d-vectors:vdistance D circle-pos) radius)))))))))
 
-(defmethod point-in-rectangle ((point 3d-vectors:vec2) (rect rectangle-collider))
-  (with-slots (pos size rot) rect
-    (let* ((cos-rot (cos rot))
-           (sin-rot (sin rot))
-           (rot-mat (3d-matrices:mat2 `(,cos-rot ,(- sin-rot) ,sin-rot ,cos-rot)))
-           (corner (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v/ size 2))))
-           (edge1 (3d-vectors:vx size))
-           (edge2 (3d-vectors:vy size))
-           (corner-point-dist (3d-vectors:vdistance point corner))
-           (prod1 (* corner-point-dist edge1))
-           (prod2 (* corner-point-dist edge2)))
-      (and (<= 0 prod1) (<= prod1 (* edge1 edge1)) (<= 0 prod2) (<= prod2 (* edge2 edge2))))))
+(defmethod point-in-rectangle (point (rectangle rectangle-points))
+  (with-slots (A B C D) rectangle
+    (let* ((AP (3d-vectors:v- point A))
+           (AB (3d-vectors:v- B A))
+           (AD (3d-vectors:v- D A))
+           (prod1 (3d-vectors:v. AP AB))
+           (prod2 (3d-vectors:v. AP AD)))
+      (and (<= 0 prod1) (<= prod1 (3d-vectors:v. AB AB)) (<= 0 prod2) (<= prod2 (3d-vectors:v. AD AD))))))
+
+;(defun vector-projection (v1 v2)
+;  (3d-vectors:v* (* (3d-vectors:v2norm v1) (cos (3d-vectors:vangle v1 v2))) (3d-vectors:vunit v2)))
+
+(defun vector-projection (v1 v2)
+  (let ((k (/ (3d-vectors:v. v1 v2) (3d-vectors:v. v2 v2))))
+    (3d-vectors:vec2 (* k (3d-vectors:vx v2)) (* k (3d-vectors:vy v2)))))
 
 (defmethod line-intersect-circle ((circle circle-collider) A B)
-  ;TODO
-  )
+  (with-slots (pos radius) circle
+    (let* ((AC (3d-vectors:v- pos A))
+           (AB (3d-vectors:v- B A))
+           (D (3d-vectors:v+ (vector-projection AC AB) A))
+           (AD (3d-vectors:v- D A))
+           (k (if (> (abs (3d-vectors:vx AB)) (abs (3d-vectors:vy AB)))
+                  (/ (3d-vectors:vx AD) (3d-vectors:vx AB))
+                  (/ (3d-vectors:vy AD) (3d-vectors:vy AB)))))
+      (if (<= k 0)
+          (< (3d-vectors:vdistance pos A) radius)
+          (if (>= k 1)
+              (< (3d-vectors:vdistance pos B) radius)
+              (< (3d-vectors:vdistance pos D) radius))))))
 
 (defmethod collider-get-collision ((col1 circle-collider) (col2 rectangle-collider))
-  (format t "Collision not implemented~%"))
+  (let* ((rect-size (rectangle-collider-size col2))
+         (rectangle (make-rotated-rectangle-points (collider-position col2)
+                                                   rect-size
+                                                   (rectangle-collider-rotation col2))))
+    (with-slots (A B C D) rectangle
+      (or (point-in-rectangle (collider-position col1) rectangle)
+          (line-intersect-circle col1 A B)
+          (line-intersect-circle col1 B C)
+          (line-intersect-circle col1 C D)
+          (line-intersect-circle col1 D A)))))
 
 (defmethod collider-get-collision ((col1 aabb-collider) (col2 circle-collider))
   (collider-get-collision col2 col1))
@@ -191,14 +268,14 @@
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
 
-(defmacro keyval (name)
+(defmacro gdk-keyval (name)
   (gdk-keyval-from-name name)) ; Only needs to be evaluated once -> macro
 
 (defmacro get-key-press (name)
-  `(member (keyval ,name) *keys-pressed*))
+  `(member (gdk-keyval ,name) *keys-pressed*))
 
 (defmacro get-key-hold (name)
-  `(member (keyval ,name) *keys-held*))
+  `(member (gdk-keyval ,name) *keys-held*))
 
 (defun main ()
   (within-main-loop
@@ -206,7 +283,9 @@
           (overlay (gtk-overlay-new))
           (area (make-instance 'gtk-gl-area :auto-render T)) ; maybe render manually?
           (fixed-container (gtk-fixed-new))
+          (box (gtk-box-new :vertical 1))
           (fps-counter (gtk-label-new "FPS:"))
+          (debug-display (gtk-label-new ""))
           vao
           (prev-time (local-time:now))
           (curr-time (local-time:now))
@@ -216,14 +295,27 @@
                          :position (3d-vectors:vec 0 0)
                          :size (3d-vectors:vec 1 1)
                          :rotation 0
-                         :texture *test-texture2*))
-          (sprite-collider (make-instance 'aabb-collider))
-          (test-collider (make-instance 'aabb-collider :position (3d-vectors:vec 2 2)))
-          (test-tiles (make-room (3d-vectors:vec -5 -4))))
+                         ;:texture *test-texture2*
+                         :texture *test-circle*))
+          (move-speed 1)
+          ;(sprite-collider (make-instance 'aabb-collider))
+          (sprite-collider (make-instance 'circle-collider))
+
+          (test-collider1 (make-instance 'aabb-collider :position (3d-vectors:vec 2 2)))
+          (collider-sprite1 (make-instance 'sprite :position (3d-vectors:vec 2 2)))
+          (test-collider2 (make-instance 'circle-collider :position (3d-vectors:vec -2 2)))
+          (collider-sprite2 (make-instance 'sprite :position (3d-vectors:vec -2 2) :texture *test-circle*))
+          (test-collider3 (make-instance 'rectangle-collider :position (3d-vectors:vec 2 -2) :rotation 1))
+          (collider-sprite3 (make-instance 'sprite :position (3d-vectors:vec 2 -2) :rotation 1))
+          (test-tiles (make-room (3d-vectors:vec -5 -4)))
+          (is-fullscreen NIL))
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
-      (gtk-fixed-put fixed-container fps-counter 0 0)
+      (gtk-fixed-put fixed-container box 0 0)
+      ;(gtk-fixed-put fixed-container fps-counter 0 0)
+      (gtk-box-pack-start box fps-counter)
+      (gtk-box-pack-start box debug-display)
       (gtk-widget-add-events window :key-press-mask)
       (g-signal-connect area "realize"
                         (lambda (widget)
@@ -247,7 +339,7 @@
       (g-signal-connect area "render"
                         (lambda (area context)
                           (declare (ignore context))
-                          (setf curr-time (local-time:now))
+                          (setf curr-time (local-time:now)) ; is this accurate? (process or system time?)
                           ;(format t "Time since last render: ~ams~%" (* 1000 (local-time:timestamp-difference curr-time prev-time)))
                           ;(format t "FPS: ~a~%" (/ 1 (local-time:timestamp-difference curr-time prev-time)))
 
@@ -264,9 +356,15 @@
                                 fps-vals)
                               (setf avg-fps (/ avg-fps (queues:qsize fps-vals)))
                               (gtk-label-set-text fps-counter (concatenate 'string "FPS: " (write-to-string (round avg-fps)))))
+                            
+                            (when (get-key-press "F11")
+                                  (if is-fullscreen
+                                      (gtk-window-unfullscreen window)
+                                      (gtk-window-fullscreen window))
+                                  (setf is-fullscreen (not is-fullscreen)))
 
                             (let* ((delta-time (min delta-time (/ 1 30))) ; game starts to slow down below 30 fps
-                                    (move-dist (* 4 delta-time)))
+                                    (move-dist (* move-speed delta-time)))
                               (when (get-key-hold "w")
                                     (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 move-dist))))
                               (when (get-key-hold "a")
@@ -282,14 +380,23 @@
                           
                           (setf (camera-position camera) (sprite-position test-sprite))
                           (setf (collider-position sprite-collider) (sprite-position test-sprite))
-                          (when (collider-get-collision sprite-collider test-collider)
-                                (format t "Collision!~%"))
+
+                          (gtk-label-set-text debug-display "")
+                          (when (collider-get-collision sprite-collider test-collider1)
+                                (gtk-label-set-text debug-display "Collision AABB"))
+                          (when (collider-get-collision sprite-collider test-collider2)
+                                (gtk-label-set-text debug-display "Collision Circle"))
+                          (when (collider-get-collision sprite-collider test-collider3)
+                                (gtk-label-set-text debug-display "Collision Rectangle"))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
                           
                           (let ((vp-mat (camera-view-projection-matrix camera)))
                             (tile-array-draw test-tiles vp-mat)
+                            (sprite-draw collider-sprite1 vp-mat)
+                            (sprite-draw collider-sprite2 vp-mat)
+                            (sprite-draw collider-sprite3 vp-mat)
                             (sprite-draw test-sprite vp-mat))
                           
                           (setf *keys-pressed* NIL)

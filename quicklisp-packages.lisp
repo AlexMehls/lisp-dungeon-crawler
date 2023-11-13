@@ -1,0 +1,7 @@
+(ql:quickload :png-read)
+(ql:quickload :cl-opengl)
+(ql:quickload :cl-cffi-gtk)
+(ql:quickload :3d-vectors)
+(ql:quickload :3d-matrices)
+(ql:quickload :local-time)
+(ql:quickload :queues)

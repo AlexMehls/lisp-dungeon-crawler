@@ -1,6 +1,6 @@
 (defpackage :textures
   (:use :common-lisp)
-  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture*
+  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle*
            :load-textures :delete-textures
            :texture-draw
            :setup-opengl :shutdown-opengl))
@@ -199,16 +199,21 @@
 (defvar *test-wall-texture* (make-instance 'texture
                               :file "textures/test_wall.png"))
 
+(defvar *test-circle* (make-instance 'texture
+                        :file "textures/circle.png"))
+
 (defun load-textures ()
   (texture-load *test-texture*)
   (texture-load *missing-texture*)
   (texture-load *test-texture2*)
   (texture-load *test-floor-texture*)
-  (texture-load *test-wall-texture*))
+  (texture-load *test-wall-texture*)
+  (texture-load *test-circle*))
 
 (defun delete-textures ()
   (texture-delete *test-texture*)
   (texture-delete *missing-texture*)
   (texture-delete *test-texture2*)
   (texture-delete *test-floor-texture*)
-  (texture-delete *test-wall-texture*))
+  (texture-delete *test-wall-texture*)
+  (texture-delete *test-circle*))

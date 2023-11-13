@@ -3,6 +3,11 @@ Shaders:
     2) RGBA, only full transparency
     3) RGBA, with blending
 
+Optimisations:
+gtk4
+circle-aabb collision early return
+replace distance with square of distance
+
 (let ((delta-time (/ 1 240))
           (start-time (local-time:now)))
       (loop while (> (gtk-main-level) 0) do
