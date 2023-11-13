@@ -1,21 +1,8 @@
-(require :asdf)
-(push "./" asdf:*central-registry*)
-(asdf:load-system :textures)
-
-(asdf:load-system :png-read)
-(asdf:load-system :cl-opengl)
-(asdf:load-system :cl-cffi-gtk)
-(asdf:load-system :3d-vectors)
-(asdf:load-system :3d-matrices)
-(asdf:load-system :local-time)
-(asdf:load-system :queues)
-(asdf:oos 'asdf:load-op :queues.simple-queue)
-
-(defpackage :opengl-test
+(defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp :textures))
 
-(in-package :opengl-test)
+(in-package :game)
 
 (defclass sprite ()
     ((pos :initarg :position
@@ -437,8 +424,3 @@
   ;(sleep 0.001) ; wait until gtk loop starts
   (sb-thread:release-foreground) ; For better debug output in gtk-thread
   (gtk:join-gtk-main))
-
-(main)
-;(sb-ext:save-lisp-and-die "openGlTest.exe"
-;                   :toplevel #'main
-;                   :executable t)
