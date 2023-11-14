@@ -200,19 +200,27 @@
                                   (setf is-fullscreen (not is-fullscreen)))
 
                             (let* ((delta-time (min delta-time (/ 1 30))) ; game starts to slow down below 30 fps
-                                    (move-dist (* move-speed delta-time)))
+                                   (move-dist (* move-speed delta-time))
+                                   (input-x 0)
+                                   (input-y 0))
                               (when (get-key-hold "w")
-                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 move-dist))))
+                                    (setf input-y (1+ input-y)))
                               (when (get-key-hold "a")
-                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec (- move-dist) 0))))
+                                    (setf input-x (1- input-x)))
                               (when (get-key-hold "s")
-                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec 0 (- move-dist)))))
+                                    (setf input-y (1- input-y)))
                               (when (get-key-hold "d")
-                                    (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:vec move-dist 0))))
-                          
-                              ;(when *keys-pressed*
-                              ;      (format t "Pressed: ~a~%" *keys-pressed*))
-                              ))
+                                    (setf input-x (1+ input-x)))
+                              
+                              (let ((input (3d-vectors:vec2 input-x input-y)))
+                                (when (not (3d-vectors:v= input (3d-vectors:vec2 0 0)))
+                                      (3d-vectors:nvunit input)
+                                      ;(setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:v* input move-dist)))
+                                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (collision::collider-resolve-collision sprite-collider  test-collider1 (3d-vectors:v* input move-dist))))
+                                      )
+                                ;(when *keys-pressed*
+                                ;      (format t "Pressed: ~a~%" *keys-pressed*))
+                                )))
                           
                           (setf (camera-position camera) (sprite-position test-sprite))
                           (setf (collider-position sprite-collider) (sprite-position test-sprite))

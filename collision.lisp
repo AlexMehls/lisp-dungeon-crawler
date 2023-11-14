@@ -174,4 +174,21 @@
 ;; Returns the permissible movement
 
 (defmethod collider-resolve-collision ((col1 aabb-collider) (col2 aabb-collider) delta-pos)
-  NIL)
+  (with-slots ((pos1 pos) (size1 size)) col1
+    (with-slots ((pos2 pos) (size2 size)) col2
+      (let* ((new-pos (3d-vectors:v+ pos1 delta-pos))
+             (dx (- (3d-vectors:vx pos1) (3d-vectors:vx pos2)))
+             (new-dx (- (3d-vectors:vx new-pos) (3d-vectors:vx pos2)))
+             (dy (- (3d-vectors:vy pos1) (3d-vectors:vy pos2)))
+             (new-dy (- (3d-vectors:vy new-pos) (3d-vectors:vy pos2)))
+             (sw (/ (+ (3d-vectors:vx size1) (3d-vectors:vx size2)) 2))
+             (sh (/ (+ (3d-vectors:vy size1) (3d-vectors:vy size2)) 2)))
+        (when (not (or (and (> (+ dx sw) 0) (< (- dx sw) 0)) (not (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))))) ; (in x direction:) (not:) is already colliding or won't be colliding after move
+              (if (> new-dx 0)
+                  (setf new-dx sw)
+                  (setf new-dx (- sw))))
+        (when (not (or (and (> (+ dy sh) 0) (< (- dy sh) 0)) (not (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))))) ; (in y direction:) (not:) is already colliding or won't be colliding after move
+              (if (> new-dy 0)
+                  (setf new-dy sh)
+                  (setf new-dy (- sh))))
+        (3d-vectors:v- (3d-vectors:v+ (3d-vectors:vec2 new-dx new-dy) pos2) pos1)))))
