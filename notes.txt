@@ -11,6 +11,7 @@ use with-vec?
 
 Bugs:
 replace constants with defvar/defparameter
+confirm accuracy of time measurements
 
 (let ((delta-time (/ 1 240))
           (start-time (local-time:now)))
