@@ -122,12 +122,15 @@
                :initform NIL
                :reader game-object-collider)
      (behavior :initarg :behavior
-               :initform (lambda (delta-time) (declare (ignore delta-time)))
-               :reader game-object-behavior)))
+               :initform (lambda (delta-time game-object) (declare (ignore delta-time game-object)))
+               :reader game-object-behavior)
+     (tags :initarg :tags
+           :initform '()
+           :accessor game-object-tags)))
 
 ;; Also sets the parent reference for the collider
-(defun make-game-object (&optional sprite collider behavior)
-  (let ((obj (make-instance 'game-object :sprite sprite)))
+(defun make-game-object (&key sprite collider behavior tags)
+  (let ((obj (make-instance 'game-object :sprite sprite :tags tags)))
     (when collider
           (setf (slot-value obj 'collider) collider)
           (setf (collider-parent collider) obj)) ; circular reference (should still be handled by garbage collector)
@@ -161,6 +164,25 @@
       (setf (sprite-position sprite) (3d-vectors:v+ (sprite-position sprite) corrected-delta-pos))
       (setf (collider-position collider) (3d-vectors:v+ (collider-position collider) corrected-delta-pos)))))
 
+(defmethod game-object-update ((obj game-object) delta-time)
+  (funcall (game-object-behavior obj) delta-time obj))
+
+(defun game-objects-update (game-objects delta-time)
+    (loop for obj being the hash-values of game-objects
+          do (game-object-update obj delta-time)))
+
+(defmethod game-object-has-tag ((obj game-object) tag)
+  (member tag (game-object-tags obj)))
+
+;; Gets the first object colliding with the given object and with matching tag
+(defmacro get-tagged-object-collision (obj tag)
+  (let ((collisions (gensym))
+        (collider (gensym)))
+    `(let ((,collisions (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*)))
+       (loop for ,collider in ,collisions
+               when (game-object-has-tag (collider-parent ,collider) ,tag)
+               return (collider-parent ,collider)))))
+
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
 
@@ -175,7 +197,7 @@
 
 (defun main ()
   (within-main-loop
-    (let ((window (gtk-window-new :toplevel))
+    (let* ((window (gtk-window-new :toplevel))
           (overlay (gtk-overlay-new))
           (area (make-instance 'gtk-gl-area :auto-render T)) ; maybe render manually?
           (fixed-container (gtk-fixed-new))
@@ -187,22 +209,61 @@
           (curr-time (local-time:now))
           (fps-vals (queues:make-queue :simple-queue))
           (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size 11))
-          (player-object (make-game-object (make-instance 'sprite
-                                             :position (3d-vectors:vec2 0 0)
-                                             :size (3d-vectors:vec2 1 1)
-                                             :rotation 0
-                                             :texture *test-texture2*)
-                                           (make-instance 'aabb-collider :size (3d-vectors:vec2 1 1))))
-          (move-speed 3)
+          (player-object (make-game-object :sprite (make-instance 'sprite
+                                                     :position (3d-vectors:vec2 0 0)
+                                                     :size (3d-vectors:vec2 1 1)
+                                                     :rotation 0
+                                                     :texture *test-texture2*)
+                                           :collider (make-instance 'aabb-collider :size (3d-vectors:vec2 1 1))
+                                           :behavior (lambda (delta-time game-object)
+                                                       (let* ((move-speed 3)
+                                                              (move-dist (* move-speed delta-time))
+                                                              (input-x 0)
+                                                              (input-y 0))
+                                                         (when (get-key-hold "w")
+                                                               (setf input-y (1+ input-y)))
+                                                         (when (get-key-hold "a")
+                                                               (setf input-x (1- input-x)))
+                                                         (when (get-key-hold "s")
+                                                               (setf input-y (1- input-y)))
+                                                         (when (get-key-hold "d")
+                                                               (setf input-x (1+ input-x)))
+                                                         
+                                                         (let ((input (3d-vectors:vec2 input-x input-y)))
+                                                           (when (not (3d-vectors:v= input (3d-vectors:vec2 0 0)))
+                                                                 (3d-vectors:nvunit input)
+                                                                 (game-object-move game-object (3d-vectors:v* input move-dist))))))
+                                           :tags '(player)))
 
-          (test-object1 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1)
-                                          (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))))
-          (test-object2 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 -2 2) :texture *test-circle* :layer -1)
-                                          (make-instance 'circle-collider :position (3d-vectors:vec2 -2 2))))
-          (test-object3 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 2 -2) :rotation 1 :layer -1)
-                                          (make-instance 'rectangle-collider :position (3d-vectors:vec2 2 -2) :rotation 1)))
-          (test-object4 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 -2 -2) :layer -1)
-                                          (make-instance 'aabb-collider :position (3d-vectors:vec2 -2 -2) :trigger T)))
+          (test-object1 (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1)
+                                          :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))
+                                           :behavior (lambda (delta-time obj)
+                                                      (declare (ignore delta-time))
+                                                      (let ((player (get-tagged-object-collision obj 'player)))
+                                                        (when player
+                                                               (gtk-label-set-text debug-display "Collision AABB"))))))
+          (test-object2 (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 -2 2) :texture *test-circle* :layer -1)
+                                          :collider (make-instance 'circle-collider :position (3d-vectors:vec2 -2 2))
+                                          :behavior (lambda (delta-time obj)
+                                                      (declare (ignore delta-time))
+                                                      (let ((player (get-tagged-object-collision obj 'player)))
+                                                        (when player
+                                                               (gtk-label-set-text debug-display "Collision Circle")
+                                                               (game-object-delete obj))))))
+          (test-object3 (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 -2) :rotation 1 :layer -1)
+                                          :collider (make-instance 'rectangle-collider :position (3d-vectors:vec2 2 -2) :rotation 1)
+                                           :behavior (lambda (delta-time obj)
+                                                      (declare (ignore delta-time))
+                                                      (let ((player (get-tagged-object-collision obj 'player)))
+                                                        (when player
+                                                               (gtk-label-set-text debug-display "Collision Rectangle"))))))
+          (test-object4 (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 -2 -2) :layer -1)
+                                          :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 -2 -2) :trigger T)
+                                           :behavior (lambda (delta-time obj)
+                                                      (declare (ignore delta-time))
+                                                      (let ((player (get-tagged-object-collision obj 'player)))
+                                                        (when player
+                                                               (gtk-label-set-text debug-display "Collision AABB trigger"))))))
           (test-tiles (make-room (3d-vectors:vec2 -5 -4)))
           (is-fullscreen NIL))
       
@@ -266,36 +327,12 @@
                                       (gtk-window-unfullscreen window)
                                       (gtk-window-fullscreen window))
                                   (setf is-fullscreen (not is-fullscreen)))
+                            (gtk-label-set-text debug-display "")
 
-                            (let* ((delta-time (min delta-time (/ 1 30))) ; game starts to slow down below 30 fps
-                                   (move-dist (* move-speed delta-time))
-                                   (input-x 0)
-                                   (input-y 0))
-                              (when (get-key-hold "w")
-                                    (setf input-y (1+ input-y)))
-                              (when (get-key-hold "a")
-                                    (setf input-x (1- input-x)))
-                              (when (get-key-hold "s")
-                                    (setf input-y (1- input-y)))
-                              (when (get-key-hold "d")
-                                    (setf input-x (1+ input-x)))
-                              
-                              (let ((input (3d-vectors:vec2 input-x input-y)))
-                                (when (not (3d-vectors:v= input (3d-vectors:vec2 0 0)))
-                                      (3d-vectors:nvunit input)
-                                      (game-object-move player-object (3d-vectors:v* input move-dist))))))
+                            (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
+                              (game-objects-update *game-objects* delta-time)))
                           
                           (setf (camera-position camera) (sprite-position (game-object-sprite player-object)))
-
-                          (gtk-label-set-text debug-display "")
-                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object1))
-                                (gtk-label-set-text debug-display "Collision AABB"))
-                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object2))
-                                (gtk-label-set-text debug-display "Collision Circle"))
-                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object3))
-                                (gtk-label-set-text debug-display "Collision Rectangle"))
-                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object4))
-                                (gtk-label-set-text debug-display "Collision AABB 2"))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
