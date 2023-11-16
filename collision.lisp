@@ -1,8 +1,8 @@
 (defpackage :collision
   (:use :common-lisp)
   (:export :circle-collider :aabb-collider :rectangle-collider
-           :collider-get-collision
-           :collider-position
+           :collider-get-collision :collider-resolve-collision :collider-get-collisions :collider-resolve-collisions
+           :collider-position :collider-parent :collider-is-trigger
            :circle-collider-radius
            :aabb-collider-size
            :rectangle-collider-size :rectangle-collider-rotation))
@@ -14,7 +14,13 @@
 (defclass collider ()
     ((pos :initarg :position
           :accessor collider-position
-          :initform (3d-vectors:vec 0 0))))
+          :initform (3d-vectors:vec2 0 0))
+     (parent :initarg :parent
+             :initform NIL
+             :accessor collider-parent)
+     (trigger :initarg :trigger
+              :initform NIL
+              :accessor collider-is-trigger)))
 
 (defclass circle-collider (collider)
     ((radius :initarg :radius
@@ -24,21 +30,18 @@
 (defclass aabb-collider (collider)
     ((size :initarg :size
            :accessor aabb-collider-size
-           :initform (3d-vectors:vec 1 1))))
+           :initform (3d-vectors:vec2 1 1))))
 
 (defclass rectangle-collider (collider)
     ((size :initarg :size
            :accessor rectangle-collider-size
-           :initform (3d-vectors:vec 1 1))
+           :initform (3d-vectors:vec2 1 1))
      (rot :initarg :rotation
           :accessor rectangle-collider-rotation
           :initform 0)))
 
-(defclass rectangle-points ()
-    ((A :initarg :A)
-     (B :initarg :B)
-     (C :initarg :C)
-     (D :initarg :D)))
+(defstruct (rectangle-points (:constructor create-rectangle-points (A B C D)))
+  A B C D)
 
 (defun make-rotated-rectangle-points (pos size rot)
   (let* ((cos-rot (cos rot))
@@ -49,7 +52,7 @@
          (B (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 1 -1)))))
          (C (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 -1 -1)))))
          (D (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-size (3d-vectors:vec2 -1 1))))))
-    (make-instance 'rectangle-points :A A :B B :C C :D D)))
+    (create-rectangle-points A B C D)))
 
 (defun make-rectangle-points (pos size)
   (let* ((half-size (3d-vectors:v/ size 2))
@@ -57,7 +60,7 @@
          (B (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 1 -1))))
          (C (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 -1 -1))))
          (D (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 -1 1)))))
-    (make-instance 'rectangle-points :A A :B B :C C :D D)))
+    (create-rectangle-points A B C D)))
 
 ;; Collsion helpers
 
@@ -132,10 +135,9 @@
                         (>= (3d-vectors:vdistance D circle-pos) radius)))))))))
 
 (defmethod collider-get-collision ((col1 circle-collider) (col2 rectangle-collider))
-  (let* ((rect-size (rectangle-collider-size col2))
-         (rectangle (make-rotated-rectangle-points (collider-position col2)
-                                                   rect-size
-                                                   (rectangle-collider-rotation col2))))
+  (let ((rectangle (make-rotated-rectangle-points (collider-position col2)
+                                                  (rectangle-collider-size col2)
+                                                  (rectangle-collider-rotation col2))))
     (with-slots (A B C D) rectangle
       (or (point-in-rectangle (collider-position col1) rectangle)
           (line-intersect-circle col1 A B)
@@ -183,12 +185,35 @@
              (new-dy (- (3d-vectors:vy new-pos) (3d-vectors:vy pos2)))
              (sw (/ (+ (3d-vectors:vx size1) (3d-vectors:vx size2)) 2))
              (sh (/ (+ (3d-vectors:vy size1) (3d-vectors:vy size2)) 2)))
-        (when (not (or (and (> (+ dx sw) 0) (< (- dx sw) 0)) (not (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))))) ; (in x direction:) (not:) is already colliding or won't be colliding after move
+        (when (and (not (and (> (+ dx sw) 0) (< (- dx sw) 0)))                                            ; not already colliding in x direction
+                   (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))) ; will be colliding after move
               (if (> new-dx 0)
                   (setf new-dx sw)
                   (setf new-dx (- sw))))
-        (when (not (or (and (> (+ dy sh) 0) (< (- dy sh) 0)) (not (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))))) ; (in y direction:) (not:) is already colliding or won't be colliding after move
+        (when (and (not (and (> (+ dy sh) 0) (< (- dy sh) 0)))                                            ; not already colliding in y direction
+                   (and (> (+ new-dx sw) 0) (< (- new-dx sw) 0) (> (+ new-dy sh) 0) (< (- new-dy sh) 0))) ; will be colliding after move
               (if (> new-dy 0)
                   (setf new-dy sh)
                   (setf new-dy (- sh))))
         (3d-vectors:v- (3d-vectors:v+ (3d-vectors:vec2 new-dx new-dy) pos2) pos1)))))
+
+;; Fallback for other colliders
+(defmethod collider-resolve-collision ((col1 collider) (col2 collider) delta-pos)
+  delta-pos)
+
+;; Multi collision detection / resolution
+(defmethod collider-get-collisions ((col collider) colliders)
+  (loop for other-collider being the hash-values of colliders
+          when (and (not (eq col other-collider)) (collider-get-collision col other-collider)) collect other-collider))
+
+(defmethod collider-resolve-collisions ((col collider) colliders delta-pos)
+  (let ((min-dx (3d-vectors:vx delta-pos))
+        (min-dy (3d-vectors:vy delta-pos)))
+    (loop for other-collider being the hash-values of colliders
+            when (not (or (eq col other-collider) (collider-is-trigger other-collider)))
+            do (let* ((new-delta-pos (collider-resolve-collision col other-collider delta-pos))
+                      (new-dx (3d-vectors:vx new-delta-pos))
+                      (new-dy (3d-vectors:vy new-delta-pos)))
+                 (when (< (abs new-dx) (abs min-dx)) (setf min-dx new-dx))
+                 (when (< (abs new-dy) (abs min-dy)) (setf min-dy new-dy))))
+    (3d-vectors:vec2 min-dx min-dy)))

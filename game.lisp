@@ -8,13 +8,13 @@
 (defclass sprite ()
     ((pos :initarg :position
           :accessor sprite-position
-          :initform (3d-vectors:vec 0 0))
+          :initform (3d-vectors:vec2 0 0))
      (layer :initarg :layer
             :accessor sprite-layer
             :initform 0)
      (size :initarg :size
            :accessor sprite-size
-           :initform (3d-vectors:vec 1 1))
+           :initform (3d-vectors:vec2 1 1))
      (rot :initarg :rotation
            :accessor sprite-rotation
            :initform 0)
@@ -23,18 +23,22 @@
               :initform *missing-texture*)))
 
 (defmethod sprite-model-matrix ((obj sprite))
-  (let ((mat (3d-matrices:mtranslation (3d-vectors:v- (3d-vectors:vxy_ (sprite-position obj)) (3d-vectors:vec 0 0 (sprite-layer obj))))))
-    (3d-matrices:nmscale mat (3d-vectors:v+ (3d-vectors:vxy_ (sprite-size obj)) (3d-vectors:vec 0 0 1)))
+  (let ((mat (3d-matrices:mtranslation (3d-vectors:v+ (3d-vectors:vxy_ (sprite-position obj)) (3d-vectors:vec3 0 0 (sprite-layer obj))))))
+    (3d-matrices:nmscale mat (3d-vectors:v+ (3d-vectors:vxy_ (sprite-size obj)) (3d-vectors:vec3 0 0 1)))
     (3d-matrices:nmrotate mat 3d-vectors:+vz+ (sprite-rotation obj))
     mat))
 
 (defmethod sprite-draw ((obj sprite) vp-matrix)
   (texture-draw (sprite-texture obj) (sprite-model-matrix obj) vp-matrix))
 
+(defun sprites-draw (sprites vp-matrix)
+  (loop for sprite being the hash-values of sprites
+          do (sprite-draw sprite vp-matrix)))
+
 (defclass camera ()
     ((pos :initarg :position
           :accessor camera-position
-          :initform (3d-vectors:vec 0 0))
+          :initform (3d-vectors:vec2 0 0))
      (screen-ratio :initform 1
                    :reader camera-screen-ratio)
      (screen-size :initarg :screen-size
@@ -44,8 +48,8 @@
 (defmethod camera-view-projection-matrix ((obj camera))
   (let* ((half-w (* (camera-screen-ratio obj) (camera-screen-size obj) 0.5))
          (half-h (* (camera-screen-size obj) 0.5))
-         (mat (3d-matrices:mortho (- half-w) half-w (- half-h) half-h 0.001 10000))
-         (pos (3d-vectors:v+ (3d-vectors:vxy_ (camera-position obj)) (3d-vectors:vec 0 0 1))))
+         (mat (3d-matrices:mortho (- half-w) half-w (- half-h) half-h 0.1 1000))
+         (pos (3d-vectors:v+ (3d-vectors:vxy_ (camera-position obj)) (3d-vectors:vec3 0 0 100))))
     (3d-matrices:nmlookat mat pos (3d-vectors:v- pos 3d-vectors:+vz+) 3d-vectors:+vy+)
     mat))
 
@@ -61,7 +65,7 @@
               :initform *missing-texture*)))
 
 (defmethod tile-model-matrix ((obj tile) pos)
-  (3d-matrices:mtranslation (3d-vectors:v- (3d-vectors:vxy_ pos) (3d-vectors:vec 0 0 (tile-layer obj)))))
+  (3d-matrices:mtranslation (3d-vectors:v+ (3d-vectors:vxy_ pos) (3d-vectors:vec3 0 0 (tile-layer obj)))))
 
 (defmethod tile-draw ((obj tile) pos vp-matrix)
   (texture-draw (tile-texture obj) (tile-model-matrix obj pos) vp-matrix))
@@ -72,7 +76,7 @@
             :initform (make-array '(0 0) :element-type 'tile))
      (offset :initarg :offset
              :reader tile-array-offset
-             :initform (3d-vectors:vec 0 0))))
+             :initform (3d-vectors:vec2 0 0))))
 
 (defmethod tile-array-draw ((obj tile-array) vp-matrix)
   (let ((tiles (tile-array-tiles obj)))
@@ -80,15 +84,15 @@
       (dotimes (i x)
         (dotimes (j y)
           (let ((tile (aref tiles i j))
-                (pos (3d-vectors:v+ (3d-vectors:vec i j) (tile-array-offset obj))))
+                (pos (3d-vectors:v+ (3d-vectors:vec2 i j) (tile-array-offset obj))))
             (tile-draw tile pos vp-matrix)))))))
 
 (defun make-room (pos)
   (let* ((w 11)
          (h 9)
          (tiles (make-array `(,w ,h) :initial-element (make-instance 'tile)))
-         (floor-tile (make-instance 'tile :texture *test-floor-texture*))
-         (wall-tile  (make-instance 'tile :texture *test-wall-texture*)))
+         (floor-tile (make-instance 'tile :texture *test-floor-texture* :layer -10))
+         (wall-tile  (make-instance 'tile :texture *test-wall-texture* :layer 10)))
     (dotimes (x w)
       (dotimes (y h)
         (if (or (= x 0) (= x (1- w)) (= y 0) (= y (1- h)))
@@ -98,6 +102,64 @@
     (make-instance 'tile-array
       :tiles tiles
       :offset pos)))
+
+(defclass id-generator ()
+    ((prev-id :initform -1)))
+
+(defmethod id-generator-generate (gen)
+  (incf (slot-value gen 'prev-id)))
+
+(defvar *game-object-id-generator* (make-instance 'id-generator))
+
+(defclass game-object ()
+    ((id :initarg :id
+         :initform (id-generator-generate *game-object-id-generator*)
+         :reader game-object-id)
+     (sprite :initarg :sprite
+             :initform NIL
+             :reader game-object-sprite)
+     (collider :initarg :collider
+               :initform NIL
+               :reader game-object-collider)
+     (behavior :initarg :behavior
+               :initform (lambda (delta-time) (declare (ignore delta-time)))
+               :reader game-object-behavior)))
+
+;; Also sets the parent reference for the collider
+(defun make-game-object (&optional sprite collider behavior)
+  (let ((obj (make-instance 'game-object :sprite sprite)))
+    (when collider
+          (setf (slot-value obj 'collider) collider)
+          (setf (collider-parent collider) obj)) ; circular reference (should still be handled by garbage collector)
+    (when behavior
+          (setf (slot-value obj 'behavior) behavior))
+    obj))
+
+;; Additional quick access to colliders and sprites for rendereing / collision detection
+;; Faster?
+(defvar *game-objects* (make-hash-table))
+(defvar *game-object-colliders* (make-hash-table))
+(defvar *game-object-sprites* (make-hash-table))
+
+(defmethod game-object-register ((obj game-object))
+  (let ((id (game-object-id obj)))
+    (setf (gethash id *game-objects*) obj)
+    (setf (gethash id *game-object-colliders*) (game-object-collider obj))
+    (setf (gethash id *game-object-sprites*) (game-object-sprite obj))))
+
+(defun game-object-delete-by-id (id)
+  (remhash id *game-objects*)
+  (remhash id *game-object-colliders*)
+  (remhash id *game-object-sprites*))
+
+(defmethod game-object-delete ((obj game-object))
+  (game-object-delete-by-id (game-object-id obj)))
+
+(defmethod game-object-move ((obj game-object) delta-pos)
+  (with-slots (sprite collider) obj
+    (let ((corrected-delta-pos (collider-resolve-collisions collider *game-object-colliders* delta-pos)))
+      (setf (sprite-position sprite) (3d-vectors:v+ (sprite-position sprite) corrected-delta-pos))
+      (setf (collider-position collider) (3d-vectors:v+ (collider-position collider) corrected-delta-pos)))))
 
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
@@ -124,27 +186,33 @@
           (prev-time (local-time:now))
           (curr-time (local-time:now))
           (fps-vals (queues:make-queue :simple-queue))
-          (camera (make-instance 'camera :position (3d-vectors:vec 0 0) :screen-size 11))
-          (test-sprite (make-instance 'sprite
-                         :position (3d-vectors:vec 0 0)
-                         ;:size (3d-vectors:vec 1 1)
-                         :size (3d-vectors:vec2 0.5 2)
-                         :rotation 0
-                         :texture *test-texture2*
-                         ;:texture *test-circle*
-                         ))
-          (move-speed 1)
-          (sprite-collider (make-instance 'aabb-collider :size (3d-vectors:vec2 0.5 2)))
-          ;(sprite-collider (make-instance 'circle-collider))
+          (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size 11))
+          (player-object (make-game-object (make-instance 'sprite
+                                             :position (3d-vectors:vec2 0 0)
+                                             :size (3d-vectors:vec2 1 1)
+                                             :rotation 0
+                                             :texture *test-texture2*)
+                                           (make-instance 'aabb-collider :size (3d-vectors:vec2 1 1))))
+          (move-speed 3)
 
-          (test-collider1 (make-instance 'aabb-collider :position (3d-vectors:vec 2 2)))
-          (collider-sprite1 (make-instance 'sprite :position (3d-vectors:vec 2 2)))
-          (test-collider2 (make-instance 'circle-collider :position (3d-vectors:vec -2 2)))
-          (collider-sprite2 (make-instance 'sprite :position (3d-vectors:vec -2 2) :texture *test-circle*))
-          (test-collider3 (make-instance 'rectangle-collider :position (3d-vectors:vec 2 -2) :rotation 1))
-          (collider-sprite3 (make-instance 'sprite :position (3d-vectors:vec 2 -2) :rotation 1))
-          (test-tiles (make-room (3d-vectors:vec -5 -4)))
+          (test-object1 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1)
+                                          (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))))
+          (test-object2 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 -2 2) :texture *test-circle* :layer -1)
+                                          (make-instance 'circle-collider :position (3d-vectors:vec2 -2 2))))
+          (test-object3 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 2 -2) :rotation 1 :layer -1)
+                                          (make-instance 'rectangle-collider :position (3d-vectors:vec2 2 -2) :rotation 1)))
+          (test-object4 (make-game-object (make-instance 'sprite :position (3d-vectors:vec2 -2 -2) :layer -1)
+                                          (make-instance 'aabb-collider :position (3d-vectors:vec2 -2 -2) :trigger T)))
+          (test-tiles (make-room (3d-vectors:vec2 -5 -4)))
           (is-fullscreen NIL))
+      
+      (game-object-register player-object)
+      (game-object-register test-object1)
+      (game-object-register test-object2)
+      (game-object-register test-object3)
+      (game-object-register test-object4)
+
+      (setf (gtk-gl-area-has-depth-buffer area) T)
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
@@ -215,33 +283,30 @@
                               (let ((input (3d-vectors:vec2 input-x input-y)))
                                 (when (not (3d-vectors:v= input (3d-vectors:vec2 0 0)))
                                       (3d-vectors:nvunit input)
-                                      ;(setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (3d-vectors:v* input move-dist)))
-                                      (setf (sprite-position test-sprite) (3d-vectors:v+ (sprite-position test-sprite) (collision::collider-resolve-collision sprite-collider  test-collider1 (3d-vectors:v* input move-dist))))
-                                      )
-                                ;(when *keys-pressed*
-                                ;      (format t "Pressed: ~a~%" *keys-pressed*))
-                                )))
+                                      (game-object-move player-object (3d-vectors:v* input move-dist))))))
                           
-                          (setf (camera-position camera) (sprite-position test-sprite))
-                          (setf (collider-position sprite-collider) (sprite-position test-sprite))
+                          (setf (camera-position camera) (sprite-position (game-object-sprite player-object)))
 
                           (gtk-label-set-text debug-display "")
-                          (when (collider-get-collision sprite-collider test-collider1)
+                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object1))
                                 (gtk-label-set-text debug-display "Collision AABB"))
-                          (when (collider-get-collision sprite-collider test-collider2)
+                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object2))
                                 (gtk-label-set-text debug-display "Collision Circle"))
-                          (when (collider-get-collision sprite-collider test-collider3)
+                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object3))
                                 (gtk-label-set-text debug-display "Collision Rectangle"))
+                          (when (collider-get-collision (game-object-collider player-object) (game-object-collider test-object4))
+                                (gtk-label-set-text debug-display "Collision AABB 2"))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
+                          ;(gl:cull-face :back)
+                          ;(gl:enable :depth-test)
+                          ;(gl:depth-func :less)
+                          ;(gl:depth-mask :true)
                           
                           (let ((vp-mat (camera-view-projection-matrix camera)))
                             (tile-array-draw test-tiles vp-mat)
-                            (sprite-draw collider-sprite1 vp-mat)
-                            (sprite-draw collider-sprite2 vp-mat)
-                            (sprite-draw collider-sprite3 vp-mat)
-                            (sprite-draw test-sprite vp-mat))
+                            (sprites-draw *game-object-sprites* vp-mat))
                           
                           (setf *keys-pressed* NIL)
                           (setf prev-time curr-time)

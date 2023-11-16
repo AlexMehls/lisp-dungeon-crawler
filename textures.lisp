@@ -87,7 +87,10 @@
   (setf *mvp-matrix-id* (gl:get-uniform-location *texture-shader-program* "MVP"))
   ;(gl:enable :texture-2d)
   (gl:cull-face :back)
-  (gl:depth-func :less))
+  (gl:enable :depth-test)
+  (gl:depth-func :less)
+  (gl:depth-mask :true)
+  )
 
 (defun shutdown-opengl ()
   ;(gl:disable :texture-2d)
