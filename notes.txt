@@ -10,6 +10,8 @@ replace distance with square of distance
 use with-vec?
 
 Bugs:
+should collision resolution result in countinuous collision?
+      in general: (consistency) should distance=0 result in collision
 replace constants with defvar/defparameter
 confirm accuracy of time measurements
 

@@ -67,9 +67,9 @@
 ;(defun vector-projection (v1 v2)
 ;  (3d-vectors:v* (* (3d-vectors:v2norm v1) (cos (3d-vectors:vangle v1 v2))) (3d-vectors:vunit v2)))
 
-(defun vector-projection (v1 v2)
-  (let ((k (/ (3d-vectors:v. v1 v2) (3d-vectors:v. v2 v2))))
-    (3d-vectors:vec2 (* k (3d-vectors:vx v2)) (* k (3d-vectors:vy v2)))))
+(defmacro vector-projection (v1 v2)
+  `(let ((k (/ (3d-vectors:v. ,v1 ,v2) (3d-vectors:v. ,v2 ,v2))))
+     (3d-vectors:vec2 (* k (3d-vectors:vx ,v2)) (* k (3d-vectors:vy ,v2)))))
 
 (defmethod point-in-rectangle (point (rectangle rectangle-points))
   (with-slots (A B C D) rectangle
@@ -94,6 +94,36 @@
           (if (>= k 1)
               (< (3d-vectors:vdistance pos B) radius)
               (< (3d-vectors:vdistance pos D) radius))))))
+
+(defmacro orthogonal-projection-parameter (point A B)
+  `(let ((direction (3d-vectors:v- ,B ,A)))
+     (/ (3d-vectors:v. (3d-vectors:v- ,point ,A) direction) (3d-vectors:v. direction direction))))
+
+;; Returns T if all rojections of points onto the line lie on the same side outside the end points
+; TODO: expand list as macro
+(defmacro multi-projection-check-ends-of-line (A B points)
+  `(let* ((point1 (car ,points))
+          (projection1 (orthogonal-projection-parameter point1 ,A ,B)))
+      (if (< projection1 0)  
+         (let ((rest-points (cdr ,points)))
+           (not (loop for point in rest-points
+                        when (>= (orthogonal-projection-parameter point ,A ,B) 0)
+                        return T)))
+         (let ((upper-bound (3d-vectors:vdistance ,A ,B)))
+           (if (> projection1 upper-bound)
+               (let ((rest-points (cdr ,points)))
+                 (not (loop for point in rest-points
+                              when (<= (orthogonal-projection-parameter point ,A ,B) upper-bound)
+                              return T)))
+               NIL)))))
+
+(defmethod rectangle-points-get-collision ((rect1 rectangle-points) (rect2 rectangle-points))
+  (with-slots (A B C D) rect1
+    (with-slots ((E A) (F B) (G C) (H D)) rect2
+      (not (or (multi-projection-check-ends-of-line A B `(,E ,F ,G ,H))
+               (multi-projection-check-ends-of-line A D `(,E ,F ,G ,H))
+               (multi-projection-check-ends-of-line E F `(,A ,B ,C ,D))
+               (multi-projection-check-ends-of-line E H `(,A ,B ,C ,D)))))))
 
 ;; Get collisions
 ;; Returns true if colliders are overlapping
@@ -158,8 +188,8 @@
         (and (> (+ dx sw) 0) (< (- dx sw) 0) (> (+ dy sh) 0) (< (- dy sh) 0))))))
 
 (defmethod collider-get-collision ((col1 aabb-collider) (col2 rectangle-collider))
-  ;(format t "Collision not implemented~%")
-  NIL)
+  (rectangle-points-get-collision (make-rectangle-points (collider-position col1) (aabb-collider-size col1))
+                                  (make-rotated-rectangle-points (collider-position col2) (rectangle-collider-size col2) (rectangle-collider-rotation col2))))
 
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 circle-collider))
   (collider-get-collision col2 col1))
@@ -168,8 +198,8 @@
   (collider-get-collision col2 col1))
 
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
-  ;(format t "Collision not implemented~%")
-  NIL)
+  (rectangle-points-get-collision (make-rotated-rectangle-points (collider-position col1) (rectangle-collider-size col1) (rectangle-collider-rotation col1))
+                                  (make-rotated-rectangle-points (collider-position col2) (rectangle-collider-size col2) (rectangle-collider-rotation col2))))
 
 ;; Collision resolution
 ;; Takes two colliders as input, as well as an atempted movement (of the first collider)

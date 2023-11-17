@@ -176,12 +176,10 @@
 
 ;; Gets the first object colliding with the given object and with matching tag
 (defmacro get-tagged-object-collision (obj tag)
-  (let ((collisions (gensym))
-        (collider (gensym)))
-    `(let ((,collisions (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*)))
-       (loop for ,collider in ,collisions
-               when (game-object-has-tag (collider-parent ,collider) ,tag)
-               return (collider-parent ,collider)))))
+  `(let ((collisions (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*))) 
+     (loop for collider in collisions 
+             when (game-object-has-tag (collider-parent collider) ,tag) 
+             return (collider-parent collider))))
 
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
