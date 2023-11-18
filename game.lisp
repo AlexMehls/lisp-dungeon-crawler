@@ -53,6 +53,8 @@
     (3d-matrices:nmlookat mat pos (3d-vectors:v- pos 3d-vectors:+vz+) 3d-vectors:+vy+)
     mat))
 
+(defvar *active-camera* NIL)
+
 (defclass tile ()
     ((tile-type :initarg :tile-type
                 :reader tile-type
@@ -205,6 +207,15 @@
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
 
+(defvar *buttons-held* NIL)
+(defvar *buttons-pressed* NIL)
+
+(defvar *mouse-x* 0)
+(defvar *mouse-y* 0)
+
+(defvar *window-w* 1)
+(defvar *window-h* 1)
+
 (defmacro gdk-keyval (name)
   (gdk-keyval-from-name name)) ; Only needs to be evaluated once -> macro
 
@@ -213,6 +224,32 @@
 
 (defmacro get-key-hold (name)
   `(member (gdk-keyval ,name) *keys-held*))
+
+;; Swaps mouse buttons 2 and 3 (mouse 3 should be the middle button)
+(defmacro gdk-mouse-button (val)
+  (case val
+    (2 3)
+    (3 2)
+    (otherwise val)))
+
+(defmacro get-button-press (val)
+  `(member (gdk-mouse-button ,val) *buttons-pressed*))
+
+(defmacro get-button-hold (val)
+  `(member (gdk-mouse-button ,val) *buttons-held*))
+
+(defmacro get-mouse-screen-pos ()
+  `(3d-vectors:vec2 *mouse-x* *mouse-y*))
+
+;; Returns pos relative to screen center and using in-game coordinates
+(defmacro screen-pos-normalized (screen-pos)
+  `(3d-vectors:v* (3d-vectors:v* (3d-vectors:v- ,screen-pos (3d-vectors:vec2 (/ *window-w* 2) (/ *window-h* 2))) (3d-vectors:vec2 1 -1)) (/ (camera-screen-size *active-camera*) *window-h*)))
+
+(defmacro screen-pos-unnormalized (world-pos)
+  `(3d-vectors:v+ (3d-vectors:v/ (3d-vectors:v/ ,world-pos (/ (camera-screen-size *active-camera*) *window-h*)) (3d-vectors:vec2 1 -1)) (3d-vectors:vec2 (/ *window-w* 2) (/ *window-h* 2))))
+
+(defmacro get-mouse-world-pos ()
+  `(screen-pos-normalized (get-mouse-screen-pos)))
 
 (defclass behavior ()
     ())
@@ -282,6 +319,7 @@
            (test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
            (is-fullscreen NIL))
       
+      (setf *active-camera* camera)
       (tile-array-add-room test-tiles 27 28 11 9)
       ;(tile-array-add-room test-tiles 61 61 5 5)
 
@@ -308,7 +346,7 @@
       (gtk-box-pack-start box fps-counter)
       (gtk-box-pack-start box debug-display)
 
-      (gtk-widget-add-events window :key-press-mask)
+      (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask))
 
       (g-signal-connect area "realize"
                         (lambda (widget)
@@ -355,12 +393,27 @@
                                       (gtk-window-unfullscreen window)
                                       (gtk-window-fullscreen window))
                                   (setf is-fullscreen (not is-fullscreen)))
+                            
+                            ;(when (get-button-press 1)
+                            ;      (format t "Left Button!~%"))
+                            ;(when (get-button-press 2)
+                            ;      (format t "Right Button!~%"))
+                            ;(when (get-button-press 3)
+                            ;      (format t "Middle Button!~%"))
+                            
                             (gtk-label-set-text debug-display "")
+
+                            ;(let ((mouse-pos (get-mouse-world-pos)))
+                            ;  (gtk-label-set-text debug-display (concatenate 'string
+                            ;                                      "Mouse pos: "
+                            ;                                      (write-to-string (3d-vectors:vx mouse-pos))
+                            ;                                      ", "
+                            ;                                      (write-to-string (3d-vectors:vy mouse-pos)))))
 
                             (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
                               (game-objects-update *game-objects* delta-time)))
                           
-                          (setf (camera-position camera) (sprite-position (game-object-sprite player-object)))
+                          (setf (camera-position *active-camera*) (sprite-position (game-object-sprite player-object)))
 
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
@@ -369,11 +422,12 @@
                           ;(gl:depth-func :less)
                           ;(gl:depth-mask :true)
                           
-                          (let ((vp-mat (camera-view-projection-matrix camera)))
+                          (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (tile-array-draw test-tiles vp-mat)
                             (sprites-draw *game-object-sprites* vp-mat))
                           
                           (setf *keys-pressed* NIL)
+                          (setf *buttons-pressed* NIL)
                           (setf prev-time curr-time)
                           (gtk-gl-area-queue-render area) ; maybe render manually? -> gdk frame clock not working
                           NIL))
@@ -381,7 +435,9 @@
                         (lambda (area width height)
                           (declare (ignore area))
                           (when (and (> height 0) (> width 0))
-                              (setf (slot-value camera 'screen-ratio) (/ width height)))
+                                (setf (slot-value *active-camera* 'screen-ratio) (/ width height))
+                                (setf *window-w* width)
+                                (setf *window-h* height))
                           NIL))
       (g-signal-connect window "destroy"
                         (lambda (widget)
@@ -405,6 +461,28 @@
                           ;(when (= (gdk-event-key-keyval event))
                           ;    (format t "pressed space~%"))
                           ;(format t "Keys: ~a~%" *keys-held*)
+                          ))
+      (g-signal-connect window "button_press_event"
+                        (lambda (widget event)
+                          (declare (ignore widget))
+                          (let ((button (gdk-event-button-button event)))
+                            (unless (member button *buttons-held*)
+                              (setf *buttons-pressed* (adjoin button *buttons-pressed*)))
+                            (setf *buttons-held* (adjoin button *buttons-held*)))
+                          ;(format t "Event: ~a~%" event)
+                          ))
+      (g-signal-connect window "button_release_event"
+                        (lambda (widget event)
+                          (declare (ignore widget))
+                          (setf *buttons-held* (set-difference *buttons-held* `(,(gdk-event-button-button event))))
+                          ;(format t "Event: ~a~%" event)
+                          ))
+      (g-signal-connect window "motion_notify_event"
+                        (lambda (widget event)
+                          (declare (ignore widget))
+                          (setf *mouse-x* (gdk-event-motion-x event))
+                          (setf *mouse-y* (gdk-event-motion-y event))
+                          ;(format t "Event: ~a~%" event)
                           ))
       (gtk-widget-show-all window)))
   
