@@ -1,7 +1,7 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision))
+        :textures :collision :player-input))
 
 (in-package :game)
 
@@ -52,8 +52,6 @@
          (pos (3d-vectors:v+ (3d-vectors:vxy_ (camera-position obj)) (3d-vectors:vec3 0 0 100))))
     (3d-matrices:nmlookat mat pos (3d-vectors:v- pos 3d-vectors:+vz+) 3d-vectors:+vy+)
     mat))
-
-(defvar *active-camera* NIL)
 
 (defclass tile ()
     ((tile-type :initarg :tile-type
@@ -203,53 +201,6 @@
                  when (game-object-has-tag (collider-parent collider) ,tag) 
                  return (collider-parent collider)))
        NIL))
-
-(defvar *keys-held* NIL)
-(defvar *keys-pressed* NIL)
-
-(defvar *buttons-held* NIL)
-(defvar *buttons-pressed* NIL)
-
-(defvar *mouse-x* 0)
-(defvar *mouse-y* 0)
-
-(defvar *window-w* 1)
-(defvar *window-h* 1)
-
-(defmacro gdk-keyval (name)
-  (gdk-keyval-from-name name)) ; Only needs to be evaluated once -> macro
-
-(defmacro get-key-press (name)
-  `(member (gdk-keyval ,name) *keys-pressed*))
-
-(defmacro get-key-hold (name)
-  `(member (gdk-keyval ,name) *keys-held*))
-
-;; Swaps mouse buttons 2 and 3 (mouse 3 should be the middle button)
-(defmacro gdk-mouse-button (val)
-  (case val
-    (2 3)
-    (3 2)
-    (otherwise val)))
-
-(defmacro get-button-press (val)
-  `(member (gdk-mouse-button ,val) *buttons-pressed*))
-
-(defmacro get-button-hold (val)
-  `(member (gdk-mouse-button ,val) *buttons-held*))
-
-(defmacro get-mouse-screen-pos ()
-  `(3d-vectors:vec2 *mouse-x* *mouse-y*))
-
-;; Returns pos relative to screen center and using in-game coordinates
-(defmacro screen-pos-normalized (screen-pos)
-  `(3d-vectors:v* (3d-vectors:v* (3d-vectors:v- ,screen-pos (3d-vectors:vec2 (/ *window-w* 2) (/ *window-h* 2))) (3d-vectors:vec2 1 -1)) (/ (camera-screen-size *active-camera*) *window-h*)))
-
-(defmacro screen-pos-unnormalized (world-pos)
-  `(3d-vectors:v+ (3d-vectors:v/ (3d-vectors:v/ ,world-pos (/ (camera-screen-size *active-camera*) *window-h*)) (3d-vectors:vec2 1 -1)) (3d-vectors:vec2 (/ *window-w* 2) (/ *window-h* 2))))
-
-(defmacro get-mouse-world-pos ()
-  `(screen-pos-normalized (get-mouse-screen-pos)))
 
 (defclass behavior ()
     ())
