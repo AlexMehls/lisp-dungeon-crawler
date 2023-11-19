@@ -9,6 +9,7 @@ circle-aabb collision early return
 separate x and y collision checks (currently both done twice)
 replace distance with square of distance
 use with-vec?
+all tags in one namespace?
 
 Bugs:
 should collision resolution result in countinuous collision?
