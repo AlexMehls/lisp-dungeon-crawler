@@ -3,6 +3,12 @@ Shaders:
     2) RGBA, only full transparency
     3) RGBA, with blending
 
+TODO:
+level generation
+visual effects (flashes on hit)
+light?
+main gameplay (start: projectile + hp behavior)
+
 Optimisations (performance):
 gtk4
 circle-aabb collision early return
