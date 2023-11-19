@@ -6,6 +6,7 @@ Shaders:
 Optimisations:
 gtk4
 circle-aabb collision early return
+separate x and y collision checks (currently both done twice)
 replace distance with square of distance
 use with-vec?
 

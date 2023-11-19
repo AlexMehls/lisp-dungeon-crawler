@@ -236,14 +236,37 @@
   (loop for other-collider being the hash-values of colliders
           when (and (not (eq col other-collider)) (collider-get-collision col other-collider)) collect other-collider))
 
+;; Splits input into x and y components and does checks separately
+;; Sloves collider getting stuck on touching colliders
 (defmethod collider-resolve-collisions ((col collider) colliders delta-pos)
-  (let ((min-dx (3d-vectors:vx delta-pos))
-        (min-dy (3d-vectors:vy delta-pos)))
-    (loop for other-collider being the hash-values of colliders
-            when (not (or (eq col other-collider) (collider-is-trigger other-collider)))
-            do (let* ((new-delta-pos (collider-resolve-collision col other-collider delta-pos))
-                      (new-dx (3d-vectors:vx new-delta-pos))
-                      (new-dy (3d-vectors:vy new-delta-pos)))
-                 (when (< (abs new-dx) (abs min-dx)) (setf min-dx new-dx))
-                 (when (< (abs new-dy) (abs min-dy)) (setf min-dy new-dy))))
+  (let* ((original-pos (collider-position col))
+         (dx (3d-vectors:vx delta-pos))
+         (dy (3d-vectors:vy delta-pos))
+         (min-dx dx)
+         (min-dy dy))
+    (let ((delta-pos (3d-vectors:vec2 dx 0)))
+      (loop for other-collider being the hash-values of colliders
+              when (not (or (eq col other-collider) (collider-is-trigger other-collider)))
+              do (let ((new-dx (3d-vectors:vx (collider-resolve-collision col other-collider delta-pos))))
+                 (when (< (abs new-dx) (abs min-dx)) (setf min-dx new-dx))))
+      (setf (collider-position col) (3d-vectors:v+ original-pos (3d-vectors:vec2 min-dx 0)))) ; move in x direction
+    (let ((delta-pos (3d-vectors:vec2 0 dy)))
+      (loop for other-collider being the hash-values of colliders
+              when (not (or (eq col other-collider) (collider-is-trigger other-collider)))
+              do (let ((new-dy (3d-vectors:vy (collider-resolve-collision col other-collider delta-pos))))
+                 (when (< (abs new-dy) (abs min-dy)) (setf min-dy new-dy)))))
+    (setf (collider-position col) original-pos) ; reset position
     (3d-vectors:vec2 min-dx min-dy)))
+
+;; Old version with movement-result = (min-x-movement, min-y-movement)
+;(defmethod collider-resolve-collisions ((col collider) colliders delta-pos)
+;  (let ((min-dx (3d-vectors:vx delta-pos))
+;        (min-dy (3d-vectors:vy delta-pos)))
+;    (loop for other-collider being the hash-values of colliders
+;            when (not (or (eq col other-collider) (collider-is-trigger other-collider)))
+;            do (let* ((new-delta-pos (collider-resolve-collision col other-collider delta-pos))
+;                      (new-dx (3d-vectors:vx new-delta-pos))
+;                      (new-dy (3d-vectors:vy new-delta-pos)))
+;                 (when (< (abs new-dx) (abs min-dx)) (setf min-dx new-dx))
+;                 (when (< (abs new-dy) (abs min-dy)) (setf min-dy new-dy))))
+;    (3d-vectors:vec2 min-dx min-dy)))
