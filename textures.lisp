@@ -12,7 +12,8 @@
 (defvar *texture-shader-program*)
 (defvar *mvp-matrix-id*)
 
-(defconstant +plane-vertex-array+
+; defconstant causes errors
+(defvar +plane-vertex-array+
         (let ((vertex-array (gl:alloc-gl-array :float 20)))
           (setf (gl:glaref vertex-array 0) -0.5) ; x
           (setf (gl:glaref vertex-array 1) -0.5) ; y
@@ -39,7 +40,8 @@
           (setf (gl:glaref vertex-array 19) 1.0)
           vertex-array))
 
-(defconstant +plane-index-array+
+; defconstant causes errors
+(defvar +plane-index-array+
         (let ((index-array (gl:alloc-gl-array :unsigned-short 6)))
           ; 1st trig
           (setf (gl:glaref index-array 0) 0)

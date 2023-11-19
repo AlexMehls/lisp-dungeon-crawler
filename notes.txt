@@ -3,19 +3,22 @@ Shaders:
     2) RGBA, only full transparency
     3) RGBA, with blending
 
-Optimisations:
+Optimisations (performance):
 gtk4
 circle-aabb collision early return
+smarter collsions (space partitioning (sort and sweep: https://www.toptal.com/game/video-game-physics-part-ii-collision-detection-for-solid-objects) (+ broad phase?))
 separate x and y collision checks (currently both done twice)
 replace distance with square of distance
 use with-vec?
+
+Optimisations (usability):
 all tags in one namespace?
+behaviors in separate system?
 
 Bugs:
 should collision resolution result in countinuous collision?
       in general: (consistency) should distance=0 result in collision
 replace constants with defvar/defparameter
-confirm accuracy of time measurements
 
 (let ((delta-time (/ 1 240))
           (start-time (local-time:now)))

@@ -6,6 +6,7 @@
                (:file "sprite" :depends-on ("textures"))
                (:file "behavior")
                (:file "game-object" :depends-on ("collision" "sprite" "behavior"))
-               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision"))
                (:file "tiles" :depends-on ("textures" "game-object" "collision"))
+               
+               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision"))
                (:file "game" :depends-on ("textures" "collision" "player-input" "sprite" "game-object" "behaviors" "tiles"))))

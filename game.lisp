@@ -40,7 +40,7 @@
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2*)
                                             :collider (make-instance 'aabb-collider)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
-                                            :tags '(behaviors::player))) ; TODO: better solution?
+                                            :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
            (is-fullscreen NIL))
       
@@ -96,7 +96,7 @@
       (g-signal-connect area "render"
                         (lambda (area context)
                           (declare (ignore context))
-                          (setf curr-time (local-time:now)) ; is this accurate? (process or system time?)
+                          (setf curr-time (local-time:now))
                           ;(format t "Time since last render: ~ams~%" (* 1000 (local-time:timestamp-difference curr-time prev-time)))
                           ;(format t "FPS: ~a~%" (/ 1 (local-time:timestamp-difference curr-time prev-time)))
 
