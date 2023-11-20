@@ -1,7 +1,7 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision :player-input :sprite :game-object :behaviors :tiles))
+        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms))
 
 (in-package :game)
 
@@ -45,8 +45,8 @@
            (is-fullscreen NIL))
       
       (setf *active-camera* camera)
-      (tile-array-add-room test-tiles 27 28 11 9)
-      ;(tile-array-add-room test-tiles 61 61 5 5)
+      (tile-array-add-room test-tiles *room-1* 27 28)
+      (tile-array-add-room test-tiles *room-2* 27 (+ 28 (array-dimension (room-tiles-layout *room-1*) 0)))
       (tile-array-setup-collider-objects test-tiles)
 
       (game-object-register player-object)

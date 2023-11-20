@@ -8,6 +8,7 @@ level generation
 visual effects (flashes on hit)
 light?
 main gameplay (start: projectile + hp behavior)
+collisions with mask (only certain tags)
 
 Optimisations (performance):
 gtk4

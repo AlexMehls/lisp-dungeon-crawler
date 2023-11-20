@@ -1,5 +1,5 @@
 (defpackage :tiles
-  (:use :common-lisp :textures :game-object :collision)
+  (:use :common-lisp :textures :game-object :collision :rooms)
   (:export :tile-type :tile-layer :tile-texture
            :tile-draw
 
@@ -10,6 +10,9 @@
            :tile-array-delete-collider-objects :tile-array-setup-collider-objects))
 
 (in-package :tiles)
+
+(defmacro indices-to-position (i j h)
+  `(3d-vectors:vec2 ,j (- ,h ,i 1)))
 
 (defclass tile ()
     ((tile-type :initarg :tile-type
@@ -40,28 +43,30 @@
 
 (defun make-tile-array (w h offset)
   (make-instance 'tile-array
-    :tiles (make-array `(,w ,h) :initial-element NIL)
+    :tiles (make-array `(,h ,w) :initial-element NIL)
     :offset offset))
 
 (defmethod tile-array-draw ((obj tile-array) vp-matrix)
   (let ((tiles (tile-array-tiles obj)))
-    (destructuring-bind (x y) (array-dimensions tiles)
-      (dotimes (i x)
-        (dotimes (j y)
+    (destructuring-bind (h w) (array-dimensions tiles)
+      (dotimes (i h)
+        (dotimes (j w)
           (let ((tile (aref tiles i j)))
             (when tile
-                  (tile-draw tile (3d-vectors:v+ (3d-vectors:vec2 i j) (tile-array-offset obj)) vp-matrix))))))))
+                  (tile-draw tile (3d-vectors:v+ (indices-to-position i j h) (tile-array-offset obj)) vp-matrix))))))))
 
-(defmethod tile-array-add-room ((obj tile-array) offset-x offset-y w h)
+(defmethod tile-array-add-room ((obj tile-array) (room-obj room-tiles) offset-x offset-y)
   (let ((floor-tile (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))
         (wall-tile  (make-instance 'tile :tile-type 'tile-wall :texture *test-wall-texture* :layer 10)))
     (with-slots (tiles) obj
-      (destructuring-bind (tiles-w tiles-h) (array-dimensions tiles)
-        (loop for y from (max offset-y 0) to (min (1- tiles-h) (1- (+ offset-y h)))
-                do (loop for x from (max offset-x 0) to (min (1- tiles-w) (1- (+ offset-x w)))
-                         do (if (or (= x offset-x) (= x (1- (+ offset-x w))) (= y offset-y) (= y (1- (+ offset-y h))))
-                              (setf (aref tiles x y) wall-tile)
-                              (setf (aref tiles x y) floor-tile))))))))
+      (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles)
+        (loop-room-tiles room-obj i-room j-room h-room w-room tile-type-symbol
+          (let ((i (+ i-room (- tiles-h h-room offset-y)))
+                (j (+ j-room offset-x)))
+            (when (and (>= i 0) (< i tiles-h) (>= j 0) (< j tiles-w))
+                  (case tile-type-symbol
+                    (rooms::tile-floor (setf (aref tiles i j) floor-tile))
+                    (rooms::tile-wall (setf (aref tiles i j) wall-tile))))))))))
 
 (defmethod tile-array-delete-collider-objects ((obj tile-array))
   (loop for col-obj in (tile-array-collider-objects obj)
@@ -71,10 +76,10 @@
   (tile-array-delete-collider-objects obj)
   ; TODO: better -> merge same tiles into bigger colliders
   (let ((tiles (tile-array-tiles obj)))
-    (destructuring-bind (x y) (array-dimensions tiles)
-      (dotimes (i x)
-        (dotimes (j y)
+    (destructuring-bind (h w) (array-dimensions tiles)
+      (dotimes (i h)
+        (dotimes (j w)
           (let ((tile (aref tiles i j)))
             (when (and tile (eq (tile-type tile) 'tile-wall))
-                  (game-object-register (make-game-object :collider (make-instance 'aabb-collider :position (3d-vectors:v+ (3d-vectors:vec2 i j) (tile-array-offset obj)))
+                  (game-object-register (make-game-object :collider (make-instance 'aabb-collider :position (3d-vectors:v+ (indices-to-position i j h) (tile-array-offset obj)))
                                                           :tags `(,(tile-type tile)))))))))))
