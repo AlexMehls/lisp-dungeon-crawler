@@ -45,8 +45,10 @@
            (is-fullscreen NIL))
       
       (setf *active-camera* camera)
-      (tile-array-add-room test-tiles *room-1* 27 28)
-      (tile-array-add-room test-tiles *room-2* 27 (+ 28 (array-dimension (room-tiles-layout *room-1*) 0)))
+      (tile-array-add-room test-tiles *room-1* 24 24)
+      (tile-array-add-room test-tiles *room-2* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
+      (tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
+      (tile-array-add-room test-tiles *room-2* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
       (tile-array-setup-collider-objects test-tiles)
 
       (game-object-register player-object)
@@ -64,11 +66,11 @@
                                               :behaviors (list (make-instance 'behavior-collision-test :message "Collision AABB 2" :label debug-display))))
 
       (setf (gtk-gl-area-has-depth-buffer area) T)
+      ;(gtk-container-add window area)
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
       (gtk-fixed-put fixed-container box 0 0)
-      ;(gtk-fixed-put fixed-container fps-counter 0 0)
       (gtk-box-pack-start box fps-counter)
       (gtk-box-pack-start box debug-display)
 
