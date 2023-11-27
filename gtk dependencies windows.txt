@@ -1,9 +1,0 @@
-install and open MSYS2
-run "pacman -Syu mingw-w64-x86_64-gtk3" and accept all
-then ONE of:
-    1) add "[MSYS2 install path]\mingw64\bin" to PATH
-    2) copy needed DLLs from "[MSYS2 install path]\mingw64\bin" into CWD
-    3) [Not Confirmed!!!] before loading cl-cffi-gtk in your lisp program, load cffi and add:
-        (pushnew #P"[MSYS2 install path]/mingw64/bin/" *foreign-library-directories*
-            :test #'equal)
-        then manually load all needed DLLs using "(cffi:load-foreign-library [name of DLL])" IN THE CORRECT ORDER (trial-and-error)

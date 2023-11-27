@@ -48,6 +48,6 @@
   (let ((player (get-tagged-object-collision game-object 'player)))
     (when player
           (when (behavior-collision-test-label behavior)
-                (gtk:gtk-label-set-text (behavior-collision-test-label behavior) (behavior-collision-test-message behavior)))
+                (setf (gtk:label-text (behavior-collision-test-label behavior)) (behavior-collision-test-message behavior)))
           (when (behavior-collision-test-destroy behavior)
                 (game-object-delete game-object)))))

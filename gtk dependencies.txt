@@ -1,0 +1,16 @@
+To get the cl-gtk4 package via quicklisp either use the Ultralisp distribution (https://ultralisp.org/) or manually install as explained in https://github.com/bohonghuang/cl-gtk4
+
+Dependencies on Windows:
+    install and open MSYS2
+    run "pacman -Syu mingw-w64-x86_64-gtk4" and accept all
+    run "pacman -Syu mingw-w64-x86_64-gobject-introspection" and accept all
+    then ONE of:
+        1) add "[MSYS2 install path]\mingw64\bin" to PATH
+        2) copy needed DLLs from "[MSYS2 install path]\mingw64\bin" into CWD
+        3) [Not Confirmed!!!] before loading cl-cffi-gtk in your lisp program, load cffi and add:
+            (pushnew #P"[MSYS2 install path]/mingw64/bin/" *foreign-library-directories*
+                :test #'equal)
+            then manually load all needed DLLs using "(cffi:load-foreign-library [name of DLL])" IN THE CORRECT ORDER (trial-and-error)
+
+On Linux:
+    ???

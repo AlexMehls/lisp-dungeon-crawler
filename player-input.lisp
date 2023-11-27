@@ -27,7 +27,8 @@
 (defvar *mouse-y* 0)
 
 (defmacro gdk-keyval (name)
-  (gdk:gdk-keyval-from-name name)) ; Only needs to be evaluated once -> macro
+  (declare (ignore name))
+  0) ; Only needs to be evaluated once -> macro
 
 (defmacro get-key-press (name)
   `(member (gdk-keyval ,name) *keys-pressed*))
