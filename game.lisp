@@ -83,9 +83,7 @@
                           (gtk-gl-area-get-error area)
 
                           (setf vao (gl:gen-vertex-array))
-                          (gl:bind-vertex-array vao)
-                          
-                          (setup-opengl)
+                          (setup-opengl vao)
                           (load-textures)))
       (g-signal-connect area "unrealize"
                         (lambda (widget)
@@ -143,6 +141,7 @@
                           
                           (setf (camera-position *active-camera*) (sprite-position (game-object-sprite player-object)))
 
+                          (gl:finish)
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
                           ;(gl:cull-face :back)
@@ -151,8 +150,14 @@
                           ;(gl:depth-mask :true)
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
+                            (gl:use-program textures::*texture-shader-program*)
+                            (gl:bind-vertex-array vao)
+
                             (tile-array-draw test-tiles vp-mat)
-                            (sprites-draw *game-object-sprites* vp-mat))
+                            (sprites-draw *game-object-sprites* vp-mat)
+
+                            (gl:bind-vertex-array 0)
+                            (gl:use-program 0))
                           
                           (setf *keys-pressed* NIL)
                           (setf *buttons-pressed* NIL)

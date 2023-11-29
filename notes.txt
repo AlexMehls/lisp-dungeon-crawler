@@ -11,6 +11,9 @@ main gameplay (start: projectile + hp behavior)
 collisions with mask (only certain tags)
 
 Optimisations (performance):
+separate VAOs -> saves attribarray settings
+instancing (at least for tiles)
+
 gtk4
 circle-aabb collision early return
 smarter collsions (space partitioning (sort and sweep: https://www.toptal.com/game/video-game-physics-part-ii-collision-detection-for-solid-objects) (+ broad phase?))

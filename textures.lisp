@@ -3,6 +3,7 @@
   (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle*
            :load-textures :delete-textures
            :texture-draw
+           :prepare-texture-draw :end-texture-draw
            :setup-opengl :shutdown-opengl))
 
 (in-package :textures)
@@ -75,7 +76,8 @@
 
     program))
 
-(defun setup-opengl ()
+(defun setup-opengl (vao)
+  (gl:bind-vertex-array vao)
   (setf *texture-shader-program* (make-shader "shaders/texture_vertex_shader.vertexshader" "shaders/texture_fragment_shader.fragmentshader"))
                             
   (setf *plane-vertex-buffer* (gl:gen-buffer))
@@ -92,7 +94,24 @@
   (gl:enable :depth-test)
   (gl:depth-func :less)
   (gl:depth-mask :true)
-  )
+
+  (let ((float-size (cffi:foreign-type-size :float)))
+    (gl:bind-buffer :array-buffer textures::*plane-vertex-buffer*)
+
+    (gl:enable-vertex-attrib-array 0)
+    (gl:vertex-attrib-pointer 0 3 :float NIL (* 5 float-size) (cffi:null-pointer))
+    (gl:enable-vertex-attrib-array 1)
+    (gl:vertex-attrib-pointer 1 2 :float NIL (* 5 float-size) (cffi:inc-pointer (cffi:null-pointer) (* 3 float-size)))
+
+    (gl:bind-buffer :element-array-buffer textures::*plane-index-buffer*)
+
+    ; (1) Use for proper partial transparency (manual sorting of draw order required)
+    ;(gl:disable :depth-test)
+    ;(gl:depth-mask :false)
+    ; (2) Required for partial transparency -> alternative: use shader that discards on full transparency
+    (gl:enable :blend)
+    (gl:blend-func :src-alpha :one-minus-src-alpha))
+  (gl:bind-vertex-array 0))
 
 (defun shutdown-opengl ()
   ;(gl:disable :texture-2d)
@@ -150,44 +169,13 @@
   (gl:delete-texture (slot-value obj 'texture-id)))
 
 (defmethod texture-draw ((obj texture) model-matrix vp-matrix)
-  ; Todo: parameter? slot of texture?
-  (gl:use-program *texture-shader-program*)
-
   (gl:uniform-matrix-4fv *mvp-matrix-id* (vector (3d-matrices:marr4 (3d-matrices:m* vp-matrix model-matrix))))
-
-  (gl:enable-vertex-attrib-array 0)
-  (gl:enable-vertex-attrib-array 1)
-
-  (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
-  (gl:vertex-attrib-pointer 0 3 :float NIL (* 5 (cffi:foreign-type-size :float)) (cffi:null-pointer))
-  (gl:vertex-attrib-pointer 1 2 :float NIL (* 5 (cffi:foreign-type-size :float)) (cffi:inc-pointer (cffi:null-pointer) (* 3 (cffi:foreign-type-size :float))))
-
-  (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
-
-  ; (1) Use for proper partial transparency (manual sorting of draw order required)
-  ;(gl:disable :depth-test)
-  ;(gl:depth-mask :false)
-  ; (2) Required for partial transparency -> alternative: use shader that discards on full transparency
-  (gl:enable :blend)
-  (gl:blend-func :src-alpha :one-minus-src-alpha)
 
   (gl:active-texture :texture0)
   (gl:bind-texture :texture-2d (texture-texture-id obj))
 
   ; null-array -> uses currently bound element-array-buffer
-  (gl:draw-elements :triangles (gl:make-null-gl-array :unsigned-short) :count 6)
-
-  (gl:disable-vertex-attrib-array 0)
-  (gl:disable-vertex-attrib-array 1)
-
-  ; Use according to (1)
-  ;(gl:enable :depth-test)
-  ;(gl:depth-mask :true)
-  ; (2)
-  (gl:disable :blend)
-
-  (gl:use-program 0)
-  (gl:flush))
+  (gl:draw-elements :triangles (gl:make-null-gl-array :unsigned-short) :count 6))
 
 (defvar *test-texture* (make-instance 'texture
                          :file "textures/test.png"))
