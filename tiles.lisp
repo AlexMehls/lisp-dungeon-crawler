@@ -1,6 +1,7 @@
 (defpackage :tiles
   (:use :common-lisp :textures :game-object :collision :rooms)
-  (:export :tile-type :tile-layer :tile-texture
+  (:export :tile
+           :tile-type :tile-layer :tile-texture
            :tile-draw
 
            :make-tile-array

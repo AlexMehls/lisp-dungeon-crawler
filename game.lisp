@@ -32,7 +32,6 @@
            (box (gtk-box-new :vertical 1))
            (fps-counter (gtk-label-new "FPS:"))
            (debug-display (gtk-label-new ""))
-           vao
            (prev-time (local-time:now))
            (curr-time (local-time:now))
            (fps-vals (queues:make-queue :simple-queue))
@@ -42,9 +41,17 @@
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
+           (stress-test-tiles (make-tile-array 128 128 (3d-vectors:vec2 -64 -64)))
            (is-fullscreen NIL))
       
       (setf *active-camera* camera)
+      (let ((floor-tile (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10)))
+        (with-slots (tiles::tiles) stress-test-tiles
+          (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
+            (dotimes (i tiles-h)
+              (dotimes (j tiles-w)
+                (setf (aref tiles::tiles i j) floor-tile))))))
+
       (tile-array-add-room test-tiles *room-1* 24 24)
       (tile-array-add-room test-tiles *room-2* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
       (tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
@@ -75,22 +82,20 @@
       (gtk-box-pack-start box debug-display)
 
       (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask))
-
+      
       (g-signal-connect area "realize"
                         (lambda (widget)
                           (declare (ignore widget))
                           (gtk-gl-area-make-current area)
                           (gtk-gl-area-get-error area)
 
-                          (setf vao (gl:gen-vertex-array))
-                          (setup-opengl vao)
+                          (setup-opengl)
                           (load-textures)))
       (g-signal-connect area "unrealize"
                         (lambda (widget)
                           (declare (ignore widget))
                           (gtk-gl-area-make-current area)
                           (gtk-gl-area-get-error area)
-                          (gl:delete-vertex-arrays (list vao))
                           (delete-textures)
                           (shutdown-opengl)))
       (g-signal-connect area "render"
@@ -151,12 +156,13 @@
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (gl:use-program textures::*texture-shader-program*)
-                            (gl:bind-vertex-array vao)
 
                             (tile-array-draw test-tiles vp-mat)
+                            ;(tile-array-draw stress-test-tiles vp-mat)
                             (sprites-draw *game-object-sprites* vp-mat)
 
-                            (gl:bind-vertex-array 0)
+                            (send-draw-calls vp-mat)
+
                             (gl:use-program 0))
                           
                           (setf *keys-pressed* NIL)

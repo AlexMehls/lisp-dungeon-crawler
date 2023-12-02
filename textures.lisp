@@ -3,7 +3,7 @@
   (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle*
            :load-textures :delete-textures
            :texture-draw
-           :prepare-texture-draw :end-texture-draw
+           :send-draw-calls
            :setup-opengl :shutdown-opengl))
 
 (in-package :textures)
@@ -11,7 +11,7 @@
 (defvar *plane-vertex-buffer*)
 (defvar *plane-index-buffer*)
 (defvar *texture-shader-program*)
-(defvar *mvp-matrix-id*)
+(defvar *vp-matrix-id*)
 
 ; defconstant causes errors
 (defvar +plane-vertex-array+
@@ -76,9 +76,8 @@
 
     program))
 
-(defun setup-opengl (vao)
-  (gl:bind-vertex-array vao)
-  (setf *texture-shader-program* (make-shader "shaders/texture_vertex_shader.vertexshader" "shaders/texture_fragment_shader.fragmentshader"))
+(defun setup-opengl ()
+  (setf *texture-shader-program* (make-shader "shaders/texture_instanced_vertex_shader.vertexshader" "shaders/texture_discard_fragment_shader.fragmentshader"))
                             
   (setf *plane-vertex-buffer* (gl:gen-buffer))
   (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
@@ -88,41 +87,80 @@
   (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
   (gl:buffer-data :element-array-buffer :static-draw +plane-index-array+)
 
-  (setf *mvp-matrix-id* (gl:get-uniform-location *texture-shader-program* "MVP"))
+  (setf *vp-matrix-id* (gl:get-uniform-location *texture-shader-program* "VP"))
   ;(gl:enable :texture-2d)
   (gl:cull-face :back)
   (gl:enable :depth-test)
   (gl:depth-func :less)
   (gl:depth-mask :true)
 
-  (let ((float-size (cffi:foreign-type-size :float)))
-    (gl:bind-buffer :array-buffer textures::*plane-vertex-buffer*)
+  ; (1) Use for proper partial transparency (manual sorting of draw order required)
+  ;(gl:disable :depth-test)
+  ;(gl:depth-mask :false)
+  ; (2) Required for partial transparency -> alternative: use shader that discards on full transparency
+
+  ;(gl:enable :blend)
+  ;(gl:blend-func :src-alpha :one-minus-src-alpha)
+  )
+
+(defun shutdown-opengl ()
+  ;(gl:disable :texture-2d)
+  (gl:delete-program *texture-shader-program*))
+
+(defvar *loaded-textures* '())
+
+(defclass texture ()
+    ((file :initarg :file
+           :reader texture-file)
+     (texture-id :reader texture-texture-id)
+     (vao :initform NIL
+          :accessor texture-vao)
+     (model-matrix-buffer :initform NIL
+                          :accessor texture-model-matrix-buffer)
+     (model-matrix-buffer-size :initform 0
+                               :accessor texture-model-matrix-buffer-size)
+     (model-matrix-array :initform (make-array 0 :fill-pointer 0 :adjustable T :element-type 'single-float)
+                         :accessor texture-model-matrix-array)))
+
+(defmethod texture-load ((obj texture))
+  (setf *loaded-textures* (adjoin obj *loaded-textures*))
+
+  (setf (texture-vao obj) (gl:gen-vertex-array))
+  (gl:bind-vertex-array (texture-vao obj))
+
+  (let ((float-size (cffi:foreign-type-size :float))
+        (vec4-size (* 4 (cffi:foreign-type-size :float))))
+    ; Setup vertex position and uv
+    (gl:bind-buffer :array-buffer *plane-vertex-buffer*)
 
     (gl:enable-vertex-attrib-array 0)
     (gl:vertex-attrib-pointer 0 3 :float NIL (* 5 float-size) (cffi:null-pointer))
     (gl:enable-vertex-attrib-array 1)
     (gl:vertex-attrib-pointer 1 2 :float NIL (* 5 float-size) (cffi:inc-pointer (cffi:null-pointer) (* 3 float-size)))
 
-    (gl:bind-buffer :element-array-buffer textures::*plane-index-buffer*)
+    ; Setup vertex indices
+    (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
 
-    ; (1) Use for proper partial transparency (manual sorting of draw order required)
-    ;(gl:disable :depth-test)
-    ;(gl:depth-mask :false)
-    ; (2) Required for partial transparency -> alternative: use shader that discards on full transparency
-    (gl:enable :blend)
-    (gl:blend-func :src-alpha :one-minus-src-alpha))
-  (gl:bind-vertex-array 0))
+    ; Setup model matrix buffer for instanced rendering
+    (setf (texture-model-matrix-buffer obj) (gl:gen-buffer))
+    (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
 
-(defun shutdown-opengl ()
-  ;(gl:disable :texture-2d)
-  (gl:delete-program *texture-shader-program*))
+    (gl:enable-vertex-attrib-array 2)
+    (gl:vertex-attrib-pointer 2 4 :float NIL (* 4 vec4-size) (cffi:null-pointer))
+    (gl:enable-vertex-attrib-array 3)
+    (gl:vertex-attrib-pointer 3 4 :float NIL (* 4 vec4-size) (cffi:inc-pointer (cffi:null-pointer) vec4-size))
+    (gl:enable-vertex-attrib-array 4)
+    (gl:vertex-attrib-pointer 4 4 :float NIL (* 4 vec4-size) (cffi:inc-pointer (cffi:null-pointer) (* 2 vec4-size)))
+    (gl:enable-vertex-attrib-array 5)
+    (gl:vertex-attrib-pointer 5 4 :float NIL (* 4 vec4-size) (cffi:inc-pointer (cffi:null-pointer) (* 3 vec4-size)))
 
-(defclass texture ()
-    ((file :initarg :file
-           :reader texture-file)
-     (texture-id :reader texture-texture-id)))
+    (%gl:vertex-attrib-divisor 2 1)
+    (%gl:vertex-attrib-divisor 3 1)
+    (%gl:vertex-attrib-divisor 4 1)
+    (%gl:vertex-attrib-divisor 5 1))
+  (gl:bind-vertex-array 0)
 
-(defmethod texture-load ((obj texture))
+  ; Load texture from file
   (labels ((array-flatten (in)
                           (let ((out (make-array (array-total-size in) :fill-pointer 0 :element-type 'unsigned-byte)))
                             (destructuring-bind (x y z) (array-dimensions in)
@@ -166,16 +204,54 @@
       (gl:bind-texture :texture-2d 0))))
 
 (defmethod texture-delete ((obj texture))
-  (gl:delete-texture (slot-value obj 'texture-id)))
+  (setf *loaded-textures* (set-difference *loaded-textures* (list obj)))
 
+  (gl:delete-texture (slot-value obj 'texture-id))
+  (when (texture-model-matrix-buffer obj)
+        (gl:delete-buffers (list (texture-model-matrix-buffer obj))))
+  (when (texture-vao obj)
+        (gl:delete-vertex-arrays (list (texture-vao obj)))))
+
+;; "registers" a draw call to be executed later
 (defmethod texture-draw ((obj texture) model-matrix vp-matrix)
-  (gl:uniform-matrix-4fv *mvp-matrix-id* (vector (3d-matrices:marr4 (3d-matrices:m* vp-matrix model-matrix))))
+  (loop for value across (3d-matrices:marr4 (3d-matrices:mtranspose model-matrix))
+          do (vector-push-extend value (texture-model-matrix-array obj) (max 1 (* 2 (array-total-size (texture-model-matrix-array obj)))))))
 
-  (gl:active-texture :texture0)
-  (gl:bind-texture :texture-2d (texture-texture-id obj))
+;; actually does a draw call using instancing
+(defmethod texture-send-draw-call ((obj texture) vp-matrix)
+  (when (> (fill-pointer (texture-model-matrix-array obj)) 0)
+        (gl:bind-vertex-array (texture-vao obj))
+        (gl:uniform-matrix-4fv *vp-matrix-id* (vector (3d-matrices:marr4 vp-matrix)))
 
-  ; null-array -> uses currently bound element-array-buffer
-  (gl:draw-elements :triangles (gl:make-null-gl-array :unsigned-short) :count 6))
+        ;; setup model matrices
+        ; TODO: get rid of warning
+        ; TODO: when re-allocation of buffer occurs, allocate capacity of array (not just element-count)
+        (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
+        (let* ((lisp-vector (texture-model-matrix-array obj))
+               (element-count (fill-pointer lisp-vector))
+               (lisp-array (make-array element-count :element-type 'single-float)))
+          ; TODO: remove unnecessary copy
+          (dotimes (i element-count)
+            (setf (aref lisp-array i) (aref lisp-vector i)))
+          (waaf-cffi:with-array-as-foreign-pointer (lisp-array ptr :float
+                                                                   :lisp-type single-float
+                                                                   :start 0
+                                                                   :end element-count
+                                                                   :copy-to-foreign T
+                                                                   :copy-from-foreign NIL)
+            (if (< (texture-model-matrix-buffer-size obj) element-count)
+                (progn
+                 (gl:buffer-data :array-buffer :dynamic-draw (gl::make-gl-array-from-pointer ptr :float element-count))
+                 (setf (texture-model-matrix-buffer-size obj) element-count))
+                (gl:buffer-sub-data :array-buffer (gl::make-gl-array-from-pointer ptr :float element-count)))))
+
+        (gl:active-texture :texture0)
+        (gl:bind-texture :texture-2d (texture-texture-id obj))
+
+        (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ (fill-pointer (texture-model-matrix-array obj)) 16) :count 6)
+        (setf (fill-pointer (texture-model-matrix-array obj)) 0)
+
+        (gl:bind-vertex-array 0)))
 
 (defvar *test-texture* (make-instance 'texture
                          :file "textures/test.png"))
@@ -210,3 +286,7 @@
   (texture-delete *test-floor-texture*)
   (texture-delete *test-wall-texture*)
   (texture-delete *test-circle*))
+
+(defun send-draw-calls (vp-matrix)
+  (loop for texture in *loaded-textures*
+          do (texture-send-draw-call texture vp-matrix)))
