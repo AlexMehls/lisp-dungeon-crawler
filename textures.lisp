@@ -109,6 +109,43 @@
 
 (defvar *loaded-textures* '())
 
+;; Uses a simple-array as the data storage and provides C++-vector-like operations
+(defclass simple-array-vector ()
+    ((data :initarg :data
+           :initform (make-array 0)
+           :reader simple-array-vector-data)
+     (size :initform 0
+           :reader simple-array-vector-size)
+     (capacity :initform 0
+               :reader simple-array-vector-capacity)
+     (type :initarg :type
+           :initform NIL
+           :reader simple-array-vector-type)))
+
+(defun make-simple-array-vector (type)
+  (make-instance 'simple-array-vector :data (make-array 0 :element-type type) :type type))
+
+(defmethod simple-array-vector-clear ((obj simple-array-vector))
+  (with-slots (size) obj
+    (setf size 0)))
+
+(defmethod simple-array-vector-reserve ((obj simple-array-vector) new-capacity)
+  (with-slots (data size capacity) obj
+    (when (> new-capacity capacity)
+          (setf capacity new-capacity)
+          (let ((new-data (make-array capacity :element-type (simple-array-vector-type obj))))
+            (dotimes (i size)
+              (setf (aref new-data i) (aref data i)))
+            (setf data new-data)))))
+
+(defmethod simple-array-vector-push-vector ((obj simple-array-vector) value-vec)
+  (with-slots (data size capacity) obj
+    (when (> (+ size (length value-vec)) capacity)
+          (simple-array-vector-reserve obj (max (+ size (length value-vec)) (* 2 capacity))))
+    (dotimes (i (length value-vec))
+      (setf (aref data size) (aref value-vec i))
+      (incf size))))
+
 (defclass texture ()
     ((file :initarg :file
            :reader texture-file)
@@ -119,12 +156,11 @@
                           :accessor texture-model-matrix-buffer)
      (model-matrix-buffer-size :initform 0
                                :accessor texture-model-matrix-buffer-size)
-     (model-matrix-array :initform (make-array 0 :fill-pointer 0 :adjustable T :element-type 'single-float)
+     (model-matrix-array :initform (make-simple-array-vector 'single-float)
                          :accessor texture-model-matrix-array)))
 
-(defmethod texture-load ((obj texture))
-  (setf *loaded-textures* (adjoin obj *loaded-textures*))
-
+;; Set up the openGL buffers for rendering
+(defmethod texture-setup-buffers ((obj texture))
   (setf (texture-vao obj) (gl:gen-vertex-array))
   (gl:bind-vertex-array (texture-vao obj))
 
@@ -158,9 +194,10 @@
     (%gl:vertex-attrib-divisor 3 1)
     (%gl:vertex-attrib-divisor 4 1)
     (%gl:vertex-attrib-divisor 5 1))
-  (gl:bind-vertex-array 0)
+  (gl:bind-vertex-array 0))
 
-  ; Load texture from file
+;; Load the texture data from the file
+(defmethod texture-load-data ((obj texture))
   (labels ((array-flatten (in)
                           (let ((out (make-array (array-total-size in) :fill-pointer 0 :element-type 'unsigned-byte)))
                             (destructuring-bind (x y z) (array-dimensions in)
@@ -203,6 +240,11 @@
       (gl:generate-mipmap :texture-2d)
       (gl:bind-texture :texture-2d 0))))
 
+(defmethod texture-load ((obj texture))
+  (setf *loaded-textures* (adjoin obj *loaded-textures*))
+  (texture-setup-buffers obj)
+  (texture-load-data obj))
+
 (defmethod texture-delete ((obj texture))
   (setf *loaded-textures* (set-difference *loaded-textures* (list obj)))
 
@@ -214,12 +256,11 @@
 
 ;; "registers" a draw call to be executed later
 (defmethod texture-draw ((obj texture) model-matrix vp-matrix)
-  (loop for value across (3d-matrices:marr4 (3d-matrices:mtranspose model-matrix))
-          do (vector-push-extend value (texture-model-matrix-array obj) (max 1 (* 2 (array-total-size (texture-model-matrix-array obj)))))))
+  (simple-array-vector-push-vector (texture-model-matrix-array obj) (3d-matrices:marr4 (3d-matrices:mtranspose model-matrix))))
 
 ;; actually does a draw call using instancing
 (defmethod texture-send-draw-call ((obj texture) vp-matrix)
-  (when (> (fill-pointer (texture-model-matrix-array obj)) 0)
+  (when (> (simple-array-vector-size (texture-model-matrix-array obj)) 0)
         (gl:bind-vertex-array (texture-vao obj))
         (gl:uniform-matrix-4fv *vp-matrix-id* (vector (3d-matrices:marr4 vp-matrix)))
 
@@ -227,12 +268,8 @@
         ; TODO: get rid of warning
         ; TODO: when re-allocation of buffer occurs, allocate capacity of array (not just element-count)
         (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
-        (let* ((lisp-vector (texture-model-matrix-array obj))
-               (element-count (fill-pointer lisp-vector))
-               (lisp-array (make-array element-count :element-type 'single-float)))
-          ; TODO: remove unnecessary copy
-          (dotimes (i element-count)
-            (setf (aref lisp-array i) (aref lisp-vector i)))
+        (let* ((lisp-array (simple-array-vector-data (texture-model-matrix-array obj)))
+               (element-count (simple-array-vector-size (texture-model-matrix-array obj))))
           (waaf-cffi:with-array-as-foreign-pointer (lisp-array ptr :float
                                                                    :lisp-type single-float
                                                                    :start 0
@@ -248,8 +285,8 @@
         (gl:active-texture :texture0)
         (gl:bind-texture :texture-2d (texture-texture-id obj))
 
-        (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ (fill-pointer (texture-model-matrix-array obj)) 16) :count 6)
-        (setf (fill-pointer (texture-model-matrix-array obj)) 0)
+        (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ (simple-array-vector-size (texture-model-matrix-array obj)) 16) :count 6)
+        (simple-array-vector-clear (texture-model-matrix-array obj))
 
         (gl:bind-vertex-array 0)))
 

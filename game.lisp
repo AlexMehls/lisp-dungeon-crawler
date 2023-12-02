@@ -41,7 +41,7 @@
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
-           (stress-test-tiles (make-tile-array 128 128 (3d-vectors:vec2 -64 -64)))
+           (stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (is-fullscreen NIL))
       
       (setf *active-camera* camera)
@@ -117,7 +117,7 @@
                                   (setf avg-fps (+ avg-fps element)))
                                 fps-vals)
                               (setf avg-fps (/ avg-fps (queues:qsize fps-vals)))
-                              (gtk-label-set-text fps-counter (concatenate 'string "FPS: " (write-to-string (round avg-fps)))))
+                              (gtk-label-set-text fps-counter (format nil "FPS: ~a" (round avg-fps))))
                             
                             (when (get-key-press "F11")
                                   (if is-fullscreen
@@ -157,8 +157,8 @@
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (gl:use-program textures::*texture-shader-program*)
 
-                            (tile-array-draw test-tiles vp-mat)
-                            ;(tile-array-draw stress-test-tiles vp-mat)
+                            ;(tile-array-draw test-tiles vp-mat)
+                            (tile-array-draw stress-test-tiles vp-mat)
                             (sprites-draw *game-object-sprites* vp-mat)
 
                             (send-draw-calls vp-mat)
