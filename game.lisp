@@ -45,18 +45,20 @@
            (is-fullscreen NIL))
       
       (setf *active-camera* camera)
-      (let ((floor-tile (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10)))
-        (with-slots (tiles::tiles) stress-test-tiles
-          (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
-            (dotimes (i tiles-h)
-              (dotimes (j tiles-w)
-                (setf (aref tiles::tiles i j) floor-tile))))))
+
+      (with-slots (tiles::tiles) stress-test-tiles
+        (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
+          (dotimes (i tiles-h)
+            (dotimes (j tiles-w)
+              (setf (aref tiles::tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))))))
+      (tile-array-register-tiles stress-test-tiles)
 
       (tile-array-add-room test-tiles *room-1* 24 24)
       (tile-array-add-room test-tiles *room-2* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
       (tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
       (tile-array-add-room test-tiles *room-2* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
       (tile-array-setup-collider-objects test-tiles)
+      ;(tile-array-register-tiles test-tiles)
 
       (game-object-register player-object)
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1)
@@ -156,10 +158,6 @@
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (gl:use-program textures::*texture-shader-program*)
-
-                            ;(tile-array-draw test-tiles vp-mat)
-                            (tile-array-draw stress-test-tiles vp-mat)
-                            (sprites-draw *game-object-sprites* vp-mat)
 
                             (send-draw-calls vp-mat)
 

@@ -2,7 +2,8 @@
   (:use :common-lisp)
   (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle*
            :load-textures :delete-textures
-           :texture-draw
+           :texture-model-matrix-manager
+           :model-matrix-manager-get-slot :model-matrix-manager-free-slot :model-matrix-manager-set-slot
            :send-draw-calls
            :setup-opengl :shutdown-opengl))
 
@@ -146,6 +147,36 @@
       (setf (aref data size) (aref value-vec i))
       (incf size))))
 
+(defmethod simple-array-vector-set-vector ((obj simple-array-vector) start-index value-vec)
+  (with-slots (data size capacity) obj
+    (dotimes (i (length value-vec))
+      (setf (aref data (+ start-index i)) (aref value-vec i)))))
+
+(defclass model-matrix-manager ()
+    ((matrices :initform (make-simple-array-vector 'single-float)
+               :reader model-matrix-manager-matrices)
+     (vacant-slots :initform (queues:make-queue :simple-queue))
+     (slot-size :initform 16
+                :reader model-matrix-manager-slot-size)))
+
+(defmethod model-matrix-manager-set-slot ((obj model-matrix-manager) slot value-vec)
+  (with-slots (matrices slot-size) obj
+    (simple-array-vector-set-vector matrices (* slot slot-size) value-vec)))
+
+(defmethod model-matrix-manager-get-slot ((obj model-matrix-manager))
+  (with-slots (matrices vacant-slots slot-size) obj
+    (let ((slot (queues:qpop vacant-slots)))
+      (if slot
+          slot
+          (progn
+           (simple-array-vector-push-vector matrices (make-array slot-size :initial-element 0.0))
+           (1- (/ (simple-array-vector-size matrices) 16)))))))
+
+(defmethod model-matrix-manager-free-slot ((obj model-matrix-manager) slot)
+  (with-slots (vacant-slots slot-size) obj
+    (queues:qpush vacant-slots slot)
+    (model-matrix-manager-set-slot obj slot (make-array slot-size :initial-element 0.0))))
+
 (defclass texture ()
     ((file :initarg :file
            :reader texture-file)
@@ -156,8 +187,8 @@
                           :accessor texture-model-matrix-buffer)
      (model-matrix-buffer-size :initform 0
                                :accessor texture-model-matrix-buffer-size)
-     (model-matrix-array :initform (make-simple-array-vector 'single-float)
-                         :accessor texture-model-matrix-array)))
+     (model-matrix-manager :initform (make-instance 'model-matrix-manager)
+                           :reader texture-model-matrix-manager)))
 
 ;; Set up the openGL buffers for rendering
 (defmethod texture-setup-buffers ((obj texture))
@@ -254,41 +285,38 @@
   (when (texture-vao obj)
         (gl:delete-vertex-arrays (list (texture-vao obj)))))
 
-;; "registers" a draw call to be executed later
-(defmethod texture-draw ((obj texture) model-matrix vp-matrix)
-  (simple-array-vector-push-vector (texture-model-matrix-array obj) (3d-matrices:marr4 (3d-matrices:mtranspose model-matrix))))
-
 ;; actually does a draw call using instancing
 (defmethod texture-send-draw-call ((obj texture) vp-matrix)
-  (when (> (simple-array-vector-size (texture-model-matrix-array obj)) 0)
-        (gl:bind-vertex-array (texture-vao obj))
-        (gl:uniform-matrix-4fv *vp-matrix-id* (vector (3d-matrices:marr4 vp-matrix)))
+  (let* ((matrix-manager (texture-model-matrix-manager obj))
+         (simple-array-vector (model-matrix-manager-matrices matrix-manager))
+         (element-count (simple-array-vector-size simple-array-vector)))
+    (when (> (simple-array-vector-size simple-array-vector) 0)
+          (gl:bind-vertex-array (texture-vao obj))
+          (gl:uniform-matrix-4fv *vp-matrix-id* (vector (3d-matrices:marr4 vp-matrix)))
 
-        ;; setup model matrices
-        ; TODO: get rid of warning
-        ; TODO: when re-allocation of buffer occurs, allocate capacity of array (not just element-count)
-        (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
-        (let* ((lisp-array (simple-array-vector-data (texture-model-matrix-array obj)))
-               (element-count (simple-array-vector-size (texture-model-matrix-array obj))))
-          (waaf-cffi:with-array-as-foreign-pointer (lisp-array ptr :float
-                                                                   :lisp-type single-float
-                                                                   :start 0
-                                                                   :end element-count
-                                                                   :copy-to-foreign T
-                                                                   :copy-from-foreign NIL)
-            (if (< (texture-model-matrix-buffer-size obj) element-count)
-                (progn
-                 (gl:buffer-data :array-buffer :dynamic-draw (gl::make-gl-array-from-pointer ptr :float element-count))
-                 (setf (texture-model-matrix-buffer-size obj) element-count))
-                (gl:buffer-sub-data :array-buffer (gl::make-gl-array-from-pointer ptr :float element-count)))))
+          ;; setup model matrices
+          ; TODO: get rid of warning
+          ; TODO: when re-allocation of buffer occurs, allocate capacity of array (not just element-count)
+          (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
+          (let* ((lisp-array (simple-array-vector-data simple-array-vector)))
+            (waaf-cffi:with-array-as-foreign-pointer (lisp-array ptr :float
+                                                                 :lisp-type single-float
+                                                                 :start 0
+                                                                 :end element-count
+                                                                 :copy-to-foreign T
+                                                                 :copy-from-foreign NIL)
+              (if (< (texture-model-matrix-buffer-size obj) element-count)
+                  (progn
+                  (gl:buffer-data :array-buffer :dynamic-draw (gl::make-gl-array-from-pointer ptr :float element-count))
+                  (setf (texture-model-matrix-buffer-size obj) element-count))
+                  (gl:buffer-sub-data :array-buffer (gl::make-gl-array-from-pointer ptr :float element-count)))))
 
-        (gl:active-texture :texture0)
-        (gl:bind-texture :texture-2d (texture-texture-id obj))
+          (gl:active-texture :texture0)
+          (gl:bind-texture :texture-2d (texture-texture-id obj))
 
-        (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ (simple-array-vector-size (texture-model-matrix-array obj)) 16) :count 6)
-        (simple-array-vector-clear (texture-model-matrix-array obj))
+          (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ element-count (model-matrix-manager-slot-size matrix-manager)) :count 6)
 
-        (gl:bind-vertex-array 0)))
+          (gl:bind-vertex-array 0))))
 
 (defvar *test-texture* (make-instance 'texture
                          :file "textures/test.png"))

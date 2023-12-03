@@ -1,5 +1,5 @@
 (defpackage :game-object
-  (:use :common-lisp :collision :sprite :behavior)
+  (:use :common-lisp :collision :sprite :render-object :behavior)
   (:export :make-game-object
            :*game-objects* :*game-object-colliders* :*game-object-sprites*
            :game-object-id :game-object-sprite :game-object-collider :game-object-behaviors :game-object-tags
@@ -49,7 +49,7 @@
 ;; Faster?
 (defvar *game-objects* (make-hash-table))
 (defvar *game-object-colliders* (make-hash-table))
-(defvar *game-object-sprites* (make-hash-table))
+(defvar *game-object-sprites* (make-hash-table)) ; TODO: remove?
 
 (defmethod game-object-register ((obj game-object))
   (let ((id (game-object-id obj)))
@@ -57,9 +57,12 @@
     (when (game-object-collider obj)
           (setf (gethash id *game-object-colliders*) (game-object-collider obj)))
     (when (game-object-sprite obj)
+          (render-object-register (game-object-sprite obj))
+          (sprite-update-model-matrix (game-object-sprite obj))
           (setf (gethash id *game-object-sprites*) (game-object-sprite obj)))))
 
 (defun game-object-delete-by-id (id)
+  (render-object-free (game-object-sprite (gethash id *game-objects*)))
   (remhash id *game-objects*)
   (remhash id *game-object-colliders*)
   (remhash id *game-object-sprites*))
@@ -71,6 +74,7 @@
   (with-slots (sprite collider) obj
     (let ((corrected-delta-pos (collider-resolve-collisions collider *game-object-colliders* delta-pos)))
       (setf (sprite-position sprite) (3d-vectors:v+ (sprite-position sprite) corrected-delta-pos))
+      (sprite-update-model-matrix sprite)
       (setf (collider-position collider) (3d-vectors:v+ (collider-position collider) corrected-delta-pos)))))
 
 (defmethod game-object-update ((obj game-object) delta-time)

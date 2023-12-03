@@ -10,12 +10,11 @@ partial transparency
 light?
 main gameplay (start: projectile + hp behavior)
 collisions with mask (only certain tags)
+remove *game-object-sprites*
 
 Optimisations (performance):
-Only update model mats when necessary
 ? split texture into renderer + texture
 
-? combine vp with m mats or remove vp from texture.draw
 ? options:        1: add to buffer directly (no gl-array in texture) -> too slow
                   1.5: add to buffer directly through mapping -> too slow
                   2: gl-array-vector -> too slow
