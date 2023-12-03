@@ -5,9 +5,11 @@
            :*keys-held* :*keys-pressed*
            :*buttons-held* :*buttons-pressed*
            :*mouse-x* :*mouse-y*
+           :*scroll*
            
            :gdk-keyval :get-key-press :get-key-hold
            :gdk-mouse-button :get-button-press :get-button-hold
+           :get-mouse-scroll
            :get-mouse-screen-pos :screen-pos-normalized :screen-pos-unnormalized :get-mouse-world-pos))
 
 (in-package :player-input)
@@ -25,6 +27,7 @@
 
 (defvar *mouse-x* 0)
 (defvar *mouse-y* 0)
+(defvar *scroll* 0)
 
 (defmacro gdk-keyval (name)
   (gdk:gdk-keyval-from-name name)) ; Only needs to be evaluated once -> macro
@@ -47,6 +50,9 @@
 
 (defmacro get-button-hold (val)
   `(member (gdk-mouse-button ,val) *buttons-held*))
+
+(defmacro get-mouse-scroll ()
+  '*scroll*)
 
 (defmacro get-mouse-screen-pos ()
   `(3d-vectors:vec2 *mouse-x* *mouse-y*))

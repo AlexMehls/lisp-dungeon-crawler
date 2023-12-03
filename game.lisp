@@ -12,7 +12,7 @@
      (screen-ratio :initform 1
                    :reader camera-screen-ratio)
      (screen-size :initarg :screen-size
-           :reader camera-screen-size
+           :accessor camera-screen-size
            :initform 1)))
 
 (defmethod camera-view-projection-matrix ((obj camera))
@@ -35,7 +35,10 @@
            (prev-time (local-time:now))
            (curr-time (local-time:now))
            (fps-vals (queues:make-queue :simple-queue))
-           (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size 15))
+           (base-screen-size 15)
+           (zoom-strength 0.1)
+           (zoom-level 0)
+           (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2*)
                                             :collider (make-instance 'aabb-collider)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
@@ -83,7 +86,7 @@
       (gtk-box-pack-start box fps-counter)
       (gtk-box-pack-start box debug-display)
 
-      (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask))
+      (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask :scroll-mask))
       
       (g-signal-connect area "realize"
                         (lambda (widget)
@@ -133,6 +136,9 @@
                             ;      (format t "Right Button!~%"))
                             ;(when (get-button-press 3)
                             ;      (format t "Middle Button!~%"))
+                            ;(let ((scroll (get-mouse-scroll)))
+                            ;  (unless (= scroll 0)
+                            ;      (format t "Scrolled: ~a~%" scroll)))
                             
                             (gtk-label-set-text debug-display "")
 
@@ -147,6 +153,15 @@
                               (game-objects-update *game-objects* delta-time)))
                           
                           (setf (camera-position *active-camera*) (sprite-position (game-object-sprite player-object)))
+                          (let ((scroll (get-mouse-scroll)))
+                            (unless (= scroll 0)
+                              (incf zoom-level scroll)
+                              (let ((new-screen-size base-screen-size))
+                                (if (> zoom-level 0)
+                                    (setf new-screen-size (/ new-screen-size (1+ (* zoom-strength zoom-level))))
+                                    (when (< zoom-level 0)
+                                          (setf new-screen-size (* new-screen-size (1+ (* zoom-strength (- zoom-level)))))))
+                                (setf (camera-screen-size *active-camera*) new-screen-size))))
 
                           (gl:finish)
                           (gl:clear-color 0.5 0.5 0.5 1.0)
@@ -165,6 +180,7 @@
                           
                           (setf *keys-pressed* NIL)
                           (setf *buttons-pressed* NIL)
+                          (setf *scroll* 0)
                           (setf prev-time curr-time)
                           (gtk-gl-area-queue-render area) ; maybe render manually? -> gdk frame clock not working
                           NIL))
@@ -212,6 +228,14 @@
                         (lambda (widget event)
                           (declare (ignore widget))
                           (setf *buttons-held* (set-difference *buttons-held* `(,(gdk-event-button-button event))))
+                          ;(format t "Event: ~a~%" event)
+                          ))
+      (g-signal-connect window "scroll_event"
+                        (lambda (widget event)
+                          (declare (ignore widget))
+                          (case (gdk-event-scroll-direction event)
+                            (:up (incf *scroll*))
+                            (:down (decf *scroll*)))
                           ;(format t "Event: ~a~%" event)
                           ))
       (g-signal-connect window "motion_notify_event"
