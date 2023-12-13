@@ -156,11 +156,7 @@
                           (let ((scroll (get-mouse-scroll)))
                             (unless (= scroll 0)
                               (incf zoom-level scroll)
-                              (let ((new-screen-size base-screen-size))
-                                (if (> zoom-level 0)
-                                    (setf new-screen-size (/ new-screen-size (1+ (* zoom-strength zoom-level))))
-                                    (when (< zoom-level 0)
-                                          (setf new-screen-size (* new-screen-size (1+ (* zoom-strength (- zoom-level)))))))
+                              (let ((new-screen-size (* base-screen-size (exp (* (- zoom-level) zoom-strength)))))
                                 (setf (camera-screen-size *active-camera*) new-screen-size))))
 
                           (gl:finish)
