@@ -1,5 +1,5 @@
 (defpackage :render-object
-  (:use :common-lisp :textures)
+  (:use :common-lisp :textures :model-matrix-manager)
   (:export :render-object
            :render-object-texture
            :render-object-register :render-object-free :render-object-update-matrix))
