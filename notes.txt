@@ -13,7 +13,7 @@ collisions with mask (only certain tags)
 remove *game-object-sprites*
 
 Optimisations (performance):
-? split texture into renderer + texture
+partial updates for static render objects
 
 ? options:        1: add to buffer directly (no gl-array in texture) -> too slow
                   1.5: add to buffer directly through mapping -> too slow
@@ -31,6 +31,7 @@ replace distance with square of distance
 use with-vec?
 
 Optimisations (usability):
+? split texture into renderer + texture
 all tags in one namespace?
 behaviors in separate system?
 

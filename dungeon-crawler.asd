@@ -1,8 +1,8 @@
 (asdf:defsystem "dungeon-crawler"
   :depends-on ("cl-opengl" "cl-cffi-gtk" "png-read" "3d-matrices" "3d-matrices" "local-time" "queues" "queues.simple-queue")
   :components ((:file "waaf-cffi")
-               (:file "model-matrix-manager")
-               (:file "textures" :depends-on ("waaf-cffi" "model-matrix-manager"))
+               (:file "model-matrix-manager" :depends-on ("waaf-cffi"))
+               (:file "textures" :depends-on ("model-matrix-manager"))
                (:file "render-object" :depends-on ("textures" "model-matrix-manager"))
                (:file "collision")
                (:file "player-input")

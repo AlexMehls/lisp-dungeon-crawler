@@ -115,10 +115,6 @@
      (texture-id :reader texture-texture-id)
      (vao :initform NIL
           :accessor texture-vao)
-     (model-matrix-buffer :initform NIL
-                          :accessor texture-model-matrix-buffer)
-     (model-matrix-buffer-size :initform 0
-                               :accessor texture-model-matrix-buffer-size)
      (model-matrix-manager :initform (make-instance 'model-matrix-manager)
                            :reader texture-model-matrix-manager)))
 
@@ -141,8 +137,8 @@
     (gl:bind-buffer :element-array-buffer *plane-index-buffer*)
 
     ; Setup model matrix buffer for instanced rendering
-    (setf (texture-model-matrix-buffer obj) (gl:gen-buffer))
-    (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
+    (model-matrix-manager-gen-buffer (texture-model-matrix-manager obj))
+    (model-matrix-manager-bind-buffer (texture-model-matrix-manager obj))
 
     (gl:enable-vertex-attrib-array 2)
     (gl:vertex-attrib-pointer 2 4 :float NIL (* 4 vec4-size) (cffi:null-pointer))
@@ -212,41 +208,23 @@
   (setf *loaded-textures* (set-difference *loaded-textures* (list obj)))
 
   (gl:delete-texture (slot-value obj 'texture-id))
-  (when (texture-model-matrix-buffer obj)
-        (gl:delete-buffers (list (texture-model-matrix-buffer obj))))
+  (model-matrix-manager-delete-buffer (texture-model-matrix-manager obj))
   (when (texture-vao obj)
         (gl:delete-vertex-arrays (list (texture-vao obj)))))
 
 ;; actually does a draw call using instancing
 (defmethod texture-send-draw-call ((obj texture) vp-matrix)
-  (let* ((matrix-manager (texture-model-matrix-manager obj))
-         (simple-array-vector (model-matrix-manager-matrices matrix-manager))
-         (element-count (simple-array-vector-size simple-array-vector)))
-    (when (> (simple-array-vector-size simple-array-vector) 0)
+  (with-slots (model-matrix-manager) obj
+    (when (> (model-matrix-manager-total-size model-matrix-manager) 0)
           (gl:bind-vertex-array (texture-vao obj))
           (gl:uniform-matrix-4fv *vp-matrix-id* (vector (3d-matrices:marr4 vp-matrix)))
 
-          ;; setup model matrices
-          ; TODO: get rid of warning
-          ; TODO: when re-allocation of buffer occurs, allocate capacity of array (not just element-count)
-          (gl:bind-buffer :array-buffer (texture-model-matrix-buffer obj))
-          (let* ((lisp-array (simple-array-vector-data simple-array-vector)))
-            (waaf-cffi:with-array-as-foreign-pointer (lisp-array ptr :float
-                                                                 :lisp-type single-float
-                                                                 :start 0
-                                                                 :end element-count
-                                                                 :copy-to-foreign T
-                                                                 :copy-from-foreign NIL)
-              (if (< (texture-model-matrix-buffer-size obj) element-count)
-                  (progn
-                  (gl:buffer-data :array-buffer :dynamic-draw (gl::make-gl-array-from-pointer ptr :float element-count))
-                  (setf (texture-model-matrix-buffer-size obj) element-count))
-                  (gl:buffer-sub-data :array-buffer (gl::make-gl-array-from-pointer ptr :float element-count)))))
+          (model-matrix-manager-bind-buffer model-matrix-manager)
 
           (gl:active-texture :texture0)
           (gl:bind-texture :texture-2d (texture-texture-id obj))
 
-          (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (/ element-count (model-matrix-manager-slot-size matrix-manager)) :count 6)
+          (gl:draw-elements-instanced :triangles (gl:make-null-gl-array :unsigned-short) (model-matrix-manager-object-count model-matrix-manager) :count 6)
 
           (gl:bind-vertex-array 0))))
 
