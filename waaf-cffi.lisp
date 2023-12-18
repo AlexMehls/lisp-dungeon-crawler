@@ -70,7 +70,7 @@ jurisdiciton.  See LICENSE.txt.
 ;;   risky generic arrays with unpredictable types automatically have
 ;;   their safety bumped up to 2 regardless of +SAFETY-SETTING+
 (eval-when (:compile-toplevel)
-  (defconstant +safety-setting+ 2) ;; FIXME - take this to safety=0 if we trust it
+  (defconstant +safety-setting+ 0) ;; FIXME - take this to safety=0 if we trust it
   (defconstant +speed-setting+  3))
 
  

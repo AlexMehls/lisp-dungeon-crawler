@@ -1,7 +1,7 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms))
+        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-generation))
 
 (in-package :game)
 
@@ -54,14 +54,16 @@
           (dotimes (i tiles-h)
             (dotimes (j tiles-w)
               (setf (aref tiles::tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))))))
-      (tile-array-register-tiles stress-test-tiles)
+      ;(tile-array-register-tiles stress-test-tiles)
 
-      (tile-array-add-room test-tiles *room-1* 24 24)
-      (tile-array-add-room test-tiles *room-2* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
-      (tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
-      (tile-array-add-room test-tiles *room-2* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
+      ;(tile-array-add-room test-tiles *room-1* 24 24)
+      ;(tile-array-add-room test-tiles *room-1* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
+      ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
+      ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
+      (generate-level test-tiles *room-1* *rooms*) ; TODO: random state
+
       (tile-array-setup-collider-objects test-tiles)
-      ;(tile-array-register-tiles test-tiles)
+      (tile-array-register-tiles test-tiles)
 
       (game-object-register player-object)
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)
