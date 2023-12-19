@@ -5,7 +5,7 @@
            :game-object-id :game-object-sprite :game-object-collider :game-object-behaviors :game-object-tags
            :game-object-register :game-object-delete-by-id :game-object-delete
 
-           :game-object-move
+           :game-object-move :game-object-set-pos
            :game-object-update :game-objects-update
            :game-object-has-tag
            :get-tagged-object-collision))
@@ -70,12 +70,20 @@
 (defmethod game-object-delete ((obj game-object))
   (game-object-delete-by-id (game-object-id obj)))
 
+;; Moves game-object (collider and sprite), while respecting other colliders
 (defmethod game-object-move ((obj game-object) delta-pos)
   (with-slots (sprite collider) obj
     (let ((corrected-delta-pos (collider-resolve-collisions collider *game-object-colliders* delta-pos)))
       (setf (sprite-position sprite) (3d-vectors:v+ (sprite-position sprite) corrected-delta-pos))
       (sprite-update-model-matrix sprite)
       (setf (collider-position collider) (3d-vectors:v+ (collider-position collider) corrected-delta-pos)))))
+
+;; Sets a game-object's (collider and sprite) position, without respecting other colliders
+(defmethod game-object-set-pos ((obj game-object) pos)
+  (with-slots (sprite collider) obj
+    (setf (sprite-position sprite) pos)
+    (sprite-update-model-matrix sprite)
+    (setf (collider-position collider) pos)))
 
 (defmethod game-object-update ((obj game-object) delta-time)
   (loop for behavior in (game-object-behaviors obj)

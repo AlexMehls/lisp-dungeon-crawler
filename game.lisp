@@ -43,27 +43,32 @@
                                             :collider (make-instance 'aabb-collider)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
-           (test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
-           (stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
-           (is-fullscreen NIL))
+           ;(test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
+           ;(stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
+           (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
+           (is-fullscreen NIL)
+           (level-generation-seed t) ; t = random, otherwise int or simple-array
+           )
       
       (setf *active-camera* camera)
 
-      (with-slots (tiles::tiles) stress-test-tiles
-        (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
-          (dotimes (i tiles-h)
-            (dotimes (j tiles-w)
-              (setf (aref tiles::tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))))))
+      ;(with-slots (tiles::tiles) stress-test-tiles
+      ;  (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
+      ;    (dotimes (i tiles-h)
+      ;      (dotimes (j tiles-w)
+      ;        (setf (aref tiles::tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))))))
       ;(tile-array-register-tiles stress-test-tiles)
 
       ;(tile-array-add-room test-tiles *room-1* 24 24)
       ;(tile-array-add-room test-tiles *room-1* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
       ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
       ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
-      (generate-level test-tiles *room-1* *rooms*) ; TODO: random state
+      ;(tile-array-setup-collider-objects test-tiles)
+      ;(tile-array-register-tiles test-tiles)
 
-      (tile-array-setup-collider-objects test-tiles)
-      (tile-array-register-tiles test-tiles)
+      (game-object-set-pos player-object (generate-level level-tiles *room-1* *rooms* (sb-ext:seed-random-state level-generation-seed)))
+      (tile-array-register-tiles level-tiles)
+      ;(tile-array-setup-collider-objects level-tiles)
 
       (game-object-register player-object)
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)

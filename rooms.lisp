@@ -75,9 +75,13 @@
 ;; Determines if 2 rooms can connect directly (axis alligned) in a given direction (side of obj-1)
 ;; Returns T if connections on the specified side are equal
 (defmethod room-tiles-can-connect ((obj-1 room-tiles) (obj-2 room-tiles) direction)
-  (let ((connections-1 (aref (room-tiles-connections obj-1) direction))
-        (connections-2 (aref (room-tiles-connections obj-2) (connection-index-complement direction))))
-    (and (= (list-length connections-1) (list-length connections-2))
+  (let* ((connections-1 (aref (room-tiles-connections obj-1) direction))
+         (connections-2 (aref (room-tiles-connections obj-2) (connection-index-complement direction)))
+         (len-1 (list-length connections-1))
+         (len-2 (list-length connections-2)))
+    (and (= len-1 len-2)
+         (> len-1 0)
+         (> len-2 0)
          (not (loop for c-1 in connections-1
                     for c-2 in connections-2
                       when (not (and (= (first c-1) (first c-2))

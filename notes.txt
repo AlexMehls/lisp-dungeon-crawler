@@ -5,6 +5,12 @@ Shaders:
 
 TODO:
 level generation
+  room limit
+  end-room
+  special rooms + limits? -> otherwise spawn specials in any room
+  block off paths
+  ? weighted room randomness
+
 visual effects (flashes on hit)
 partial transparency
 light?
@@ -14,14 +20,7 @@ remove *game-object-sprites*
 
 Optimisations (performance):
 partial updates for static render objects
-
-? options:        1: add to buffer directly (no gl-array in texture) -> too slow
-                  1.5: add to buffer directly through mapping -> too slow
-                  2: gl-array-vector -> too slow
-                  3: vector of matrices -> create gl-array for each draw -> ?
-
-                  S1: any + keep matrices for static objects (tiles)
-                  S2: "assemble" tile positions in shader
+rendering: keep c-pointer (or directly edit buffer)
 
 gtk4
 circle-aabb collision early return
