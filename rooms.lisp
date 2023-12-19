@@ -52,6 +52,36 @@
                   :reader room-tiles-connections
                   :initform (make-connections-array))))
 
+;; Creates a rotated version of the supplied room
+;; Rotation is an integer value (0 = no rotation, then rotated clockwise)
+(defmethod copy-room-tiles-rotated ((room-obj room-tiles) rotation)
+  (setf rotation (mod rotation 4))
+  (with-slots (keys layout connections) room-obj
+    (let ((new-keys (alexandria:copy-hash-table keys))
+          (new-layout (make-array (array-dimensions layout)))
+          (new-connections (make-array (array-dimensions connections)))
+          (h (array-dimension layout 0))
+          (w (array-dimension layout 1)))
+      ;; Rotated copy of layout
+      (dotimes (i h)
+        (dotimes (j w)
+          (let ((new-i i)
+                (new-j j))
+            (case rotation
+              (1 (setf new-i j)
+                 (setf new-j (- w i 1)))
+              (2 (setf new-i (- h i 1))
+                 (setf new-j (- w j 1)))
+              (3 (setf new-i (- h j 1))
+                 (setf new-j i)))
+            (setf (aref new-layout new-i new-j) (aref layout i j)))))
+
+      ;; Shifted copy of connections
+      (dotimes (i (array-dimension connections 0))
+        (setf (aref new-connections (mod (+ i rotation) 4)) (alexandria:copy-sequence 'list (aref connections i))))
+      
+      (make-instance 'room-tiles :keys new-keys :layout new-layout :connections new-connections))))
+
 ;; Loops over "layout" array while looking up the key value in the "keys" hash-table
 (defmacro loop-room-tiles (room-tiles i j h w tile-type &rest body)
   (let ((layout (gensym)))
@@ -132,6 +162,32 @@
                                                         :left '((7 2))
                                                         :right '((7 2)))))
 
+(defvar *room-t-junction-not-B* (make-instance 'room-tiles
+                   :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
+                   :layout (make-array '(16 16) :initial-contents '((W W W W W W W F F W W W W W W W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (F F F F F F F F F F F F F F F F)
+                                                                    (F F F F F F F F F F F F F F F F)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W W W W W W W W W W W W W W W W)))
+                   :connections (make-connections-array :top '((7 2))
+                                                        :left '((7 2))
+                                                        :right '((7 2)))))
+
+(defvar *room-t-junction-not-L* (copy-room-tiles-rotated *room-t-junction-not-B* 1))
+(defvar *room-t-junction-not-T* (copy-room-tiles-rotated *room-t-junction-not-B* 2))
+(defvar *room-t-junction-not-R* (copy-room-tiles-rotated *room-t-junction-not-B* 3))
+
 (defvar *room-vertical* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
                    :layout (make-array '(16 16) :initial-contents '((W W W W W W W F F W W W W W W W)
@@ -153,26 +209,7 @@
                    :connections (make-connections-array :top '((7 2))
                                                         :bottom '((7 2)))))
 
-(defvar *room-horizontal* (make-instance 'room-tiles
-                   :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
-                   :layout (make-array '(16 16) :initial-contents '((W W W W W W W W W W W W W W W W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (F F F F F F F F F F F F F F F F)
-                                                                    (F F F F F F F F F F F F F F F F)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W W W W W W W W W W W W W W W W)))
-                   :connections (make-connections-array :left '((7 2))
-                                                        :right '((7 2)))))
+(defvar *room-horizontal* (copy-room-tiles-rotated *room-vertical* 1))
 
 (defvar *room-corner-TR* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
@@ -195,49 +232,11 @@
                    :connections (make-connections-array :top '((7 2))
                                                         :right '((7 2)))))
 
-(defvar *room-corner-RB* (make-instance 'room-tiles
-                   :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
-                   :layout (make-array '(16 16) :initial-contents '((W W W W W W W W W W W W W W W W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F F)
-                                                                    (W F F F F F F F F F F F F F F F)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W W W W W W W F F W W W W W W W)))
-                   :connections (make-connections-array :right '((7 2))
-                                                        :bottom '((7 2)))))
+(defvar *room-corner-RB* (copy-room-tiles-rotated *room-corner-TR* 1))
+(defvar *room-corner-BL* (copy-room-tiles-rotated *room-corner-TR* 2))
+(defvar *room-corner-LT* (copy-room-tiles-rotated *room-corner-TR* 3))
 
-(defvar *room-corner-BL* (make-instance 'room-tiles
-                   :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
-                   :layout (make-array '(16 16) :initial-contents '((W W W W W W W W W W W W W W W W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (F F F F F F F F F F F F F F F W)
-                                                                    (F F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W F F F F F F F F F F F F F F W)
-                                                                    (W W W W W W W F F W W W W W W W)))
-                   :connections (make-connections-array :bottom '((7 2))
-                                                        :left '((7 2)))))
-
-(defvar *room-corner-LT* (make-instance 'room-tiles
+(defvar *room-dead-end-T* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
                    :layout (make-array '(16 16) :initial-contents '((W W W W W W W F F W W W W W W W)
                                                                     (W F F F F F F F F F F F F F F W)
@@ -246,8 +245,8 @@
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
-                                                                    (F F F F F F F F F F F F F F F W)
-                                                                    (F F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
+                                                                    (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
@@ -255,9 +254,15 @@
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W F F F F F F F F F F F F F F W)
                                                                     (W W W W W W W W W W W W W W W W)))
-                   :connections (make-connections-array :left '((7 2))
-                                                        :top '((7 2)))))
+                   :connections (make-connections-array :top '((7 2)))))
+
+(defvar *room-dead-end-R* (copy-room-tiles-rotated *room-dead-end-T* 1))
+(defvar *room-dead-end-B* (copy-room-tiles-rotated *room-dead-end-T* 2))
+(defvar *room-dead-end-L* (copy-room-tiles-rotated *room-dead-end-T* 3))
 
 (defvar *rooms* (list ;*room-1*
-                      *room-crossroad* *room-vertical* *room-horizontal*
-                      *room-corner-TR* *room-corner-RB* *room-corner-BL* *room-corner-LT*))
+                     *room-crossroad*
+                     *room-t-junction-not-B* *room-t-junction-not-L* *room-t-junction-not-T* *room-t-junction-not-R*
+                     *room-vertical* *room-horizontal*
+                     *room-corner-TR* *room-corner-RB* *room-corner-BL* *room-corner-LT*
+                     *room-dead-end-T* *room-dead-end-R* *room-dead-end-B* *room-dead-end-L*))

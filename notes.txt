@@ -5,8 +5,8 @@ Shaders:
 
 TODO:
 level generation
-  room limit
-  end-room
+  room limit (+ minimum)
+  end-room(s) (+ start roomS?)
   special rooms + limits? -> otherwise spawn specials in any room
   block off paths
   ? weighted room randomness
