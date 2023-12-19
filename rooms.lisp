@@ -1,6 +1,7 @@
 (defpackage :rooms
   (:use :common-lisp)
-  (:export :room-tiles
+  (:export :next-indices
+           :room-tiles
            :room-tiles-keys :room-tiles-layout
            :loop-room-tiles :room-tiles-find-connections :room-tiles-can-connect
            
@@ -29,6 +30,14 @@
 
 (defmacro connection-index-complement (index)
   `(mod (+ ,index 2) 4))
+
+(defun next-indices (i j direction)
+  (case direction
+    (0 (decf i))
+    (1 (incf j))
+    (2 (incf i))
+    (3 (decf j)))
+  (values i j))
 
 (defclass room-tiles ()
     ((keys :initarg :keys
