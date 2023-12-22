@@ -139,6 +139,27 @@
                    :connections (make-connections-array :top '((7 2))
                                                         :bottom '((7 2)))))
 
+(defvar *room-2* (make-instance 'room-tiles
+                   :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor) (O NIL)))
+                   :layout (make-array '(16 16) :initial-contents '((O O O O O O W F F W O O O O O O)
+                                                                    (O O O O O O W F F W O O O O O O)
+                                                                    (O O O O O O W F F W O O O O O O)
+                                                                    (O O O W W W W F F W W W W O O O)
+                                                                    (O O O W F F F F F F F F W O O O)
+                                                                    (O O O W F F F F F F F F W O O O)
+                                                                    (W W W W F F F F F F F F W W W W)
+                                                                    (F F F F F F F F F F F F F F F F)
+                                                                    (F F F F F F F F F F F F F F F F)
+                                                                    (W W W W F F F F F F F F W W W W)
+                                                                    (O O O W F F F F F F F F W O O O)
+                                                                    (O O O W F F F F F F F F W O O O)
+                                                                    (O O O W W W W F F W W W W O O O)
+                                                                    (O O O O O O W F F W O O O O O O)
+                                                                    (O O O O O O W F F W O O O O O O)
+                                                                    (O O O O O O W F F W O O O O O O)))
+                   :connections (make-connections-array :top '((7 2))
+                                                        :bottom '((7 2)))))
+
 (defvar *room-crossroad* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
                    :layout (make-array '(16 16) :initial-contents '((W W W W W W W F F W W W W W W W)

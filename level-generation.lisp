@@ -21,32 +21,34 @@
                (setf initial-list (delete element initial-list :start index :count 1))))
      result))
 
-(defun expand-room (room-layout i j rooms &optional (room-count NIL) (random-state *random-state*))
-  (let ((room-obj (aref room-layout i j))
-        (expansion-order (random-indices 4 random-state))
-        (rooms-generated 0))
-    (destructuring-bind (layout-h layout-w) (array-dimensions room-layout)
-      (loop for direction in expansion-order
-              when (or (not room-count) (< rooms-generated room-count)) do
-              (multiple-value-bind (new-i new-j) (next-indices i j direction)
-                (when (and (>= new-i 0) (< new-i layout-h) (>= new-j 0) (< new-j layout-w) (not (aref room-layout new-i new-j)))
-                      (let ((candidates (loop for other-room in rooms
-                                                when (room-tiles-can-connect room-obj other-room direction)
-                                                collect other-room)))
-                        (when candidates
-                              (setf (aref room-layout new-i new-j) (nth (random (length candidates) random-state) candidates))
-                              (incf rooms-generated)
-                              (incf rooms-generated (expand-room room-layout new-i new-j rooms (when room-count (- room-count rooms-generated)) random-state))))))))
-    rooms-generated))
-
 (defstruct room-layout
   layout
   room-count
   start-i
-  start-j)
+  start-j
+  (dead-ends '())) ; List of triples (i, j, distance-to-start)
+
+(defun expand-room (room-layout i j distance rooms &optional (room-count NIL) (random-state *random-state*))
+  (let ((room-obj (aref (room-layout-layout room-layout) i j))
+        (expansion-order (random-indices 4 random-state))
+        (rooms-generated 0))
+    (destructuring-bind (layout-h layout-w) (array-dimensions (room-layout-layout room-layout))
+      (loop for direction in expansion-order
+              when (or (not room-count) (< rooms-generated room-count)) do
+              (multiple-value-bind (new-i new-j) (next-indices i j direction)
+                (when (and (>= new-i 0) (< new-i layout-h) (>= new-j 0) (< new-j layout-w) (not (aref (room-layout-layout room-layout) new-i new-j)))
+                      (let ((candidates (loop for other-room in rooms
+                                                when (room-tiles-can-connect room-obj other-room direction)
+                                                collect other-room)))
+                        (when candidates
+                              (setf (aref (room-layout-layout room-layout) new-i new-j) (nth (random (length candidates) random-state) candidates))
+                              (incf rooms-generated)
+                              (incf rooms-generated (expand-room room-layout new-i new-j (1+ distance) rooms (when room-count (- room-count rooms-generated)) random-state))))))))
+    (when (= rooms-generated 0)
+          (push (list i j distance) (room-layout-dead-ends room-layout)))
+    rooms-generated))
 
 (defun try-generate-room-layout (h w starting-room ending-room rooms &optional (room-count NIL) (random-state *random-state*))
-  (declare (ignore ending-room)) ; TODO: remove
   (let* ((room-layout (make-room-layout :layout (make-array (list h w) :initial-element NIL)))
          (i (random h random-state))
          (j (random w random-state)))
@@ -54,8 +56,14 @@
     (setf (room-layout-start-i room-layout) i)
     (setf (room-layout-start-j room-layout) j)
     (setf (aref (room-layout-layout room-layout) i j) starting-room)
-    (setf (room-layout-room-count room-layout) (expand-room (room-layout-layout room-layout) i j rooms room-count random-state))
+
+    (setf (room-layout-room-count room-layout) (expand-room room-layout i j 0 rooms room-count random-state))
     (format t "Rooms generated: ~a~%" (room-layout-room-count room-layout))
+
+    (sort (room-layout-dead-ends room-layout) #'(lambda (a b) (> (third a) (third b))))
+    (let ((dead-end (first (room-layout-dead-ends room-layout))))
+      (format t "Ending room at i=~a j=~a~%" (first dead-end) (second dead-end))
+      (setf (aref (room-layout-layout room-layout) (first dead-end) (second dead-end)) ending-room))
     room-layout))
 
 (defun generate-room-layout (h w starting-room ending-room rooms &optional (room-count NIL) (attempts 1) (random-state *random-state*))
@@ -93,6 +101,9 @@
                (centering-y (+ (3d-vectors:vy offset) (/ +room-size+ 2) -0.5)))
           (setf starting-pos (3d-vectors:vec2 (+ (* j +room-size+) centering-x) (+ (* (- layout-h i 1) +room-size+) centering-y)))
           (format t "Final room-count: ~a~%" (room-layout-room-count room-layout))
+          (format t "Dead ends:~%")
+          (loop for element in (room-layout-dead-ends room-layout) do
+                  (format t "At ~a, ~a (Distance ~a)~%" (first element) (second element) (third element)))
           (make-rooms-from-layout tile-array (room-layout-layout room-layout)))))
     (format t "...Done~%")
     starting-pos))

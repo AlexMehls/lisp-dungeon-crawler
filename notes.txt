@@ -5,7 +5,7 @@ Shaders:
 
 TODO:
 level generation
-  end-room(s) (+ start roomS?)
+  multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
   block off paths (outside of map) -> or forbid rooms?
   check other room connections -> block off or don't generate on missmatch
