@@ -66,7 +66,7 @@
       ;(tile-array-setup-collider-objects test-tiles)
       ;(tile-array-register-tiles test-tiles)
 
-      (game-object-set-pos player-object (generate-level level-tiles *room-1* *rooms* (sb-ext:seed-random-state level-generation-seed)))
+      (game-object-set-pos player-object (generate-level level-tiles *room-1* *room-1* *rooms* 20 10 (sb-ext:seed-random-state level-generation-seed)))
       (tile-array-register-tiles level-tiles)
       ;(tile-array-setup-collider-objects level-tiles)
 

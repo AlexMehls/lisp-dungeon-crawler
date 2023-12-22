@@ -5,28 +5,30 @@ Shaders:
 
 TODO:
 level generation
-  room limit (+ minimum)
   end-room(s) (+ start roomS?)
   special rooms + limits? -> otherwise spawn specials in any room
-  block off paths
+  block off paths (outside of map) -> or forbid rooms?
+  check other room connections -> block off or don't generate on missmatch
   ? weighted room randomness
 
-visual effects (flashes on hit)
-partial transparency
-light?
+VFX
+  visual effects (flashes on hit) -> add color tint to shader (implement like model-mats)
+  partial transparency
+  light?
 main gameplay (start: projectile + hp behavior)
 collisions with mask (only certain tags)
 remove *game-object-sprites*
 
 Optimisations (performance):
-partial updates for static render objects
-rendering: keep c-pointer (or directly edit buffer)
-
-gtk4
-circle-aabb collision early return
-smarter collsions (space partitioning (sort and sweep: https://www.toptal.com/game/video-game-physics-part-ii-collision-detection-for-solid-objects) (+ broad phase?))
-separate x and y collision checks (currently both done twice)
-replace distance with square of distance
+Rendering
+  partial updates for static render objects
+  keep c-pointer (or directly edit buffer)
+  gtk4
+Collisions
+  circle-aabb collision early return
+  smarter collsions (space partitioning (sort and sweep: https://www.toptal.com/game/video-game-physics-part-ii-collision-detection-for-solid-objects) (+ broad phase?))
+  separate x and y collision checks (currently both done twice)
+  replace distance with square of distance
 use with-vec?
 
 Optimisations (usability):
