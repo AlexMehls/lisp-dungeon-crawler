@@ -52,6 +52,12 @@
                   :reader room-tiles-connections
                   :initform (make-connections-array))))
 
+(defun inverted-connection (connection size)
+  (let ((new-connection (reverse connection)))
+    (loop for entry in new-connection do
+            (setf (first entry) (- size (first entry) (second entry))))
+    new-connection))
+
 ;; Creates a rotated version of the supplied room
 ;; Rotation is an integer value (0 = no rotation, then rotated clockwise)
 (defmethod copy-room-tiles-rotated ((room-obj room-tiles) rotation)
@@ -76,9 +82,13 @@
                  (setf new-j i)))
             (setf (aref new-layout new-i new-j) (aref layout i j)))))
 
-      ;; Shifted copy of connections
+      ;; Shifted (and possibly flipped) copy of connections
       (dotimes (i (array-dimension connections 0))
-        (setf (aref new-connections (mod (+ i rotation) 4)) (alexandria:copy-sequence 'list (aref connections i))))
+        (let ((side-length (if (or (= i 0) (= i 2)) w h)))
+          (if (or (and (evenp i) (or (= rotation 2) (= rotation 3)))
+                  (and (oddp i) (or (= rotation 1) (= rotation 2))))
+              (setf (aref new-connections (mod (+ i rotation) 4)) (inverted-connection (aref connections i) side-length))    
+              (setf (aref new-connections (mod (+ i rotation) 4)) (alexandria:copy-sequence 'list (aref connections i))))))
       
       (make-instance 'room-tiles :keys new-keys :layout new-layout :connections new-connections))))
 

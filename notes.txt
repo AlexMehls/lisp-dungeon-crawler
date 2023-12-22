@@ -5,8 +5,6 @@ Shaders:
 
 TODO:
 level generation
-  rotate connections correctly
-
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
   ? prevent generation instead of blocking later
