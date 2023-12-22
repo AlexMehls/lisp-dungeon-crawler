@@ -66,9 +66,9 @@
       ;(tile-array-setup-collider-objects test-tiles)
       ;(tile-array-register-tiles test-tiles)
 
-      (game-object-set-pos player-object (generate-level level-tiles *room-1* *room-2* *rooms* 200 10 (sb-ext:seed-random-state level-generation-seed)))
+      (game-object-set-pos player-object (generate-level level-tiles *room-1* *room-2* *rooms* 20 10 (sb-ext:seed-random-state level-generation-seed)))
       (tile-array-register-tiles level-tiles)
-      ;(tile-array-setup-collider-objects level-tiles)
+      (tile-array-setup-collider-objects level-tiles)
 
       (game-object-register player-object)
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)

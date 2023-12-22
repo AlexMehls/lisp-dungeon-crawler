@@ -7,7 +7,7 @@
            :tile-array-tiles :tile-array-offset :tile-array-collider-objects
            :tile-array-register-tiles :tile-array-free-tiles
            :tile-array-delete-collider-objects :tile-array-setup-collider-objects
-           :tile-array-add-room))
+           :tile-array-add-room :tile-array-block-connection))
 
 (in-package :tiles)
 
@@ -88,3 +88,28 @@
                 (case tile-type-symbol
                   (rooms::tile-floor (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10)))
                   (rooms::tile-wall (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-wall :texture *test-wall-texture* :layer 10))))))))))
+
+(defmethod tile-array-block-connection ((obj tile-array) (room-obj room-tiles) direction offset-x offset-y)
+  (with-slots (tiles) obj
+    (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles)
+      (let ((layout (room-tiles-layout room-obj)))
+        (destructuring-bind (h w) (array-dimensions layout)
+          (loop for connection in (aref (room-tiles-connections room-obj) direction) do
+                  (let ((c-offset (first connection)))
+                    (dotimes (c (second connection))
+                      (let ((i-room)
+                            (j-room))
+                        (case direction
+                          (0 (setf i-room 0)
+                             (setf j-room (+ c-offset c)))
+                          (1 (setf i-room (+ c-offset c))
+                             (setf j-room (1- w)))
+                          (2 (setf i-room (1- h))
+                             (setf j-room (+ c-offset c)))
+                          (3 (setf i-room (+ c-offset c))
+                             (setf j-room 0)))
+                        (let ((i (+ i-room (- tiles-h h offset-y)))
+                              (j (+ j-room offset-x)))
+                          (when (and (>= i 0) (< i tiles-h) (>= j 0) (< j tiles-w))
+                                (setf (aref tiles i j) (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-wall :texture *test-wall-texture* :layer 10))))))))))))))
+                  

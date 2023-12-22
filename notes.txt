@@ -5,10 +5,11 @@ Shaders:
 
 TODO:
 level generation
+  rotate connections correctly
+
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
-  block off paths (outside of map) -> or forbid rooms?
-  check other room connections -> block off or don't generate on missmatch
+  ? prevent generation instead of blocking later
   ? weighted room randomness
 
 VFX

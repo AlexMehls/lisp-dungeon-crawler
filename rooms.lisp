@@ -2,7 +2,7 @@
   (:use :common-lisp)
   (:export :next-indices
            :room-tiles
-           :room-tiles-keys :room-tiles-layout
+           :room-tiles-keys :room-tiles-layout :room-tiles-connections
            :loop-room-tiles :room-tiles-find-connections :room-tiles-can-connect
            
            :*rooms* :*room-1* :*room-2*))
@@ -158,7 +158,9 @@
                                                                     (O O O O O O W F F W O O O O O O)
                                                                     (O O O O O O W F F W O O O O O O)))
                    :connections (make-connections-array :top '((7 2))
-                                                        :bottom '((7 2)))))
+                                                        :bottom '((7 2))  
+                                                        :left '((7 2))
+                                                        :right '((7 2)))))
 
 (defvar *room-crossroad* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W tile-wall) (F tile-floor)))
