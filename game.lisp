@@ -26,6 +26,10 @@
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
                                                              (make-instance 'behavior-player-attack :attack-rate 2 :projectile-velocity 10 :projectile-size 0.5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
+           (test-target (make-game-object :sprite (make-instance 'sprite :static NIL)
+                                          :collider (make-instance 'aabb-collider)
+                                          :behaviors (list (make-instance 'behavior-destructable :hp 3))
+                                          :tags '(behaviors::enemy)))
            ;(test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
            ;(stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
@@ -54,6 +58,9 @@
       (tile-array-setup-collider-objects level-tiles)
 
       (game-object-register player-object)
+      (game-object-set-pos test-target (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -2 0)))
+      (game-object-register test-target)
+
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)
                                               :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))
                                               :behaviors (list (make-instance 'behavior-collision-test :message "Collision AABB" :label debug-display))))

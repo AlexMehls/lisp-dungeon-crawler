@@ -8,7 +8,8 @@
            :game-object-move :game-object-set-pos
            :game-object-update :game-objects-update
            :game-object-has-tag
-           :get-object-collisions :get-tagged-object-collision))
+           :get-object-collisions :get-tagged-object-collision
+           :get-object-behavior-by-subtype))
 
 (in-package :game-object)
 
@@ -109,3 +110,9 @@
      (loop for collider in collisions 
              when (game-object-has-tag (collider-parent collider) ,tag) 
              return (collider-parent collider))))
+
+;; Gets the first behavior of the given object with the matching subtype
+(defmacro get-object-behavior-by-subtype (obj type)
+  `(loop for behavior in (game-object-behaviors ,obj)
+           when (eq (type-of behavior) ,type)
+           return behavior))
