@@ -1,27 +1,9 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-generation))
+        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-generation :camera))
 
 (in-package :game)
-
-(defclass camera ()
-    ((pos :initarg :position
-          :accessor camera-position
-          :initform (3d-vectors:vec2 0 0))
-     (screen-ratio :initform 1
-                   :reader camera-screen-ratio)
-     (screen-size :initarg :screen-size
-           :accessor camera-screen-size
-           :initform 1)))
-
-(defmethod camera-view-projection-matrix ((obj camera))
-  (let* ((half-w (* (camera-screen-ratio obj) (camera-screen-size obj) 0.5))
-         (half-h (* (camera-screen-size obj) 0.5))
-         (mat (3d-matrices:mortho (- half-w) half-w (- half-h) half-h 0.1 1000))
-         (pos (3d-vectors:v+ (3d-vectors:vxy_ (camera-position obj)) (3d-vectors:vec3 0 0 100))))
-    (3d-matrices:nmlookat mat pos (3d-vectors:v- pos 3d-vectors:+vz+) 3d-vectors:+vy+)
-    mat))
 
 (defun main ()
   (within-main-loop
@@ -41,7 +23,8 @@
            (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
                                             :collider (make-instance 'aabb-collider)
-                                            :behaviors (list (make-instance 'behavior-player-movement :move-speed 5))
+                                            :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
+                                                             (make-instance 'behavior-player-attack :attack-rate 2 :projectile-velocity 10 :projectile-size 0.5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            ;(test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
            ;(stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
@@ -191,7 +174,7 @@
                         (lambda (area width height)
                           (declare (ignore area))
                           (when (and (> height 0) (> width 0))
-                                (setf (slot-value *active-camera* 'screen-ratio) (/ width height))
+                                (setf (camera-screen-ratio *active-camera*) (/ width height))
                                 (setf *window-w* width)
                                 (setf *window-h* height))
                           NIL))

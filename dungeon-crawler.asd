@@ -1,11 +1,12 @@
 (asdf:defsystem "dungeon-crawler"
   :depends-on ("cl-opengl" "cl-cffi-gtk" "png-read" "3d-matrices" "3d-matrices" "local-time" "queues" "queues.simple-queue" "alexandria")
-  :components ((:file "waaf-cffi")
+  :components ((:file "camera")
+               (:file "waaf-cffi")
                (:file "model-matrix-manager" :depends-on ("waaf-cffi"))
                (:file "textures" :depends-on ("model-matrix-manager"))
                (:file "render-object" :depends-on ("textures" "model-matrix-manager"))
                (:file "collision")
-               (:file "player-input")
+               (:file "player-input" :depends-on ("camera"))
                (:file "sprite" :depends-on ("render-object"))
                (:file "behavior")
                (:file "game-object" :depends-on ("collision" "sprite" "render-object" "behavior"))
@@ -13,5 +14,5 @@
                (:file "tiles" :depends-on ("render-object" "textures" "game-object" "collision" "rooms"))
                (:file "level-generation" :depends-on ("tiles" "rooms"))
                
-               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision"))
-               (:file "game" :depends-on ("textures" "collision" "player-input" "sprite" "game-object" "behaviors" "tiles" "rooms" "level-generation"))))
+               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision" "textures" "sprite"))
+               (:file "game" :depends-on ("textures" "collision" "player-input" "sprite" "game-object" "behaviors" "tiles" "rooms" "level-generation" "camera"))))

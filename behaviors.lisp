@@ -1,9 +1,15 @@
 (defpackage :behaviors
-  (:use :common-lisp :game-object :behavior :player-input :collision)
+  (:use :common-lisp :game-object :behavior :player-input :collision :textures :sprite)
   (:export :behavior-update
            
            :behavior-player-movement
            :behavior-player-movement-move-speed
+
+           :behavior-projectile
+           :behavior-projectile-direction :behavior-projectile-velocity
+
+           :behavior-player-attack
+           :behavior-player-attack-attack-rate :behavior-player-attack-projectile-velocity
            
            :behavior-collision-test
            :behavior-collision-test-message :behavior-collision-test-label :behavior-collision-test-destroy))
@@ -32,6 +38,56 @@
       (when (not (3d-vectors:v= input (3d-vectors:vec2 0 0)))
             (3d-vectors:nvunit input)
             (game-object-move game-object (3d-vectors:v* input move-dist))))))
+
+(defclass behavior-projectile (behavior)
+    ((direction :initarg :direction
+                :initform (3d-vectors:vec2 0 1)
+                :reader behavior-projectile-direction)
+     (velocity :initarg :velocity
+               :initform 5
+               :reader behavior-projectile-velocity)
+     (lifetime :initarg :lifetime
+               :initform 10.0)))
+
+(defmethod behavior-update ((behavior behavior-projectile) delta-time game-object)
+  (with-slots (direction velocity lifetime) behavior
+    (game-object-move game-object (3d-vectors:v* direction (* velocity delta-time))) ; TODO: don't collide with walls? or destroy on collide with walls -> only trigger collider?
+    ; TODO: damage opponents
+    (decf lifetime delta-time)
+    (when (< lifetime 0)
+          (game-object-delete game-object))))
+
+(defclass behavior-player-attack (behavior)
+    ((attack-rate :initarg :attack-rate
+                  :initform 1
+                  :accessor behavior-player-attack-attack-rate)
+     (projectile-velocity :initarg :projectile-velocity
+                          :initform 5
+                          :accessor behavior-player-attack-projectile-velocity)
+     (projectile-size :initarg :projectile-size
+                      :initform 0.5
+                      :accessor behavior-player-attack-projectile-size)
+     (cooldown :initform 0)))
+
+(defmethod behavior-update ((behavior behavior-player-attack) delta-time game-object)
+  (with-slots (attack-rate projectile-velocity projectile-size cooldown) behavior
+    (if (> cooldown 0)
+        (decf cooldown delta-time)
+        (when (get-button-hold 1)
+              (setf cooldown (/ 1 attack-rate))
+              (let* ((spawn-position (collider-position (game-object-collider game-object))) ; Assumes that player has a collider
+                     (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position)))
+                     (spawn-rotation (atan (- (3d-vectors:vx spawn-direction)) (3d-vectors:vy spawn-direction))))
+                (game-object-register (make-game-object :sprite (make-instance 'sprite
+                                                                  :position spawn-position
+                                                                  :rotation spawn-rotation
+                                                                  :size (3d-vectors:vec2 projectile-size projectile-size)
+                                                                  :texture *test-circle*
+                                                                  :layer 11
+                                                                  :static NIL)
+                                                        :collider (make-instance 'circle-collider :position spawn-position :radius (/ projectile-size 2) :trigger T)
+                                                        :behaviors (list (make-instance 'behavior-projectile :direction spawn-direction :velocity projectile-velocity))
+                                                        :tags '(projectile))))))))
 
 (defclass behavior-collision-test (behavior)
     ((message :initarg :message

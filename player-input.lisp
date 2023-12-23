@@ -1,8 +1,6 @@
 (defpackage :player-input
-  (:use :common-lisp)
-  (:export :*active-camera* :*window-w* :*window-h*
-           
-           :*keys-held* :*keys-pressed*
+  (:use :common-lisp :camera)
+  (:export :*keys-held* :*keys-pressed*
            :*buttons-held* :*buttons-pressed*
            :*mouse-x* :*mouse-y*
            :*scroll*
@@ -13,11 +11,6 @@
            :get-mouse-screen-pos :screen-pos-normalized :screen-pos-unnormalized :get-mouse-world-pos))
 
 (in-package :player-input)
-
-; TODO: put somewhere else
-(defvar *active-camera* NIL)
-(defvar *window-w* 1)
-(defvar *window-h* 1)
 
 (defvar *keys-held* NIL)
 (defvar *keys-pressed* NIL)
@@ -65,4 +58,4 @@
   `(3d-vectors:v+ (3d-vectors:v/ (3d-vectors:v/ ,world-pos (/ (camera-screen-size *active-camera*) *window-h*)) (3d-vectors:vec2 1 -1)) (3d-vectors:vec2 (/ *window-w* 2) (/ *window-h* 2))))
 
 (defmacro get-mouse-world-pos ()
-  `(screen-pos-normalized (get-mouse-screen-pos)))
+  `(3d-vectors:v+ (screen-pos-normalized (get-mouse-screen-pos)) (camera-position *active-camera*)))

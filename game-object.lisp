@@ -8,7 +8,7 @@
            :game-object-move :game-object-set-pos
            :game-object-update :game-objects-update
            :game-object-has-tag
-           :get-tagged-object-collision))
+           :get-object-collisions :get-tagged-object-collision))
 
 (in-package :game-object)
 
@@ -90,17 +90,22 @@
           do (behavior-update behavior delta-time obj)))
 
 (defun game-objects-update (game-objects delta-time)
-    (loop for obj being the hash-values of game-objects
-          do (game-object-update obj delta-time)))
+  (loop for obj being the hash-values of game-objects
+        do (when (eq (type-of obj) 'game-object) ; For some reason there are sometimes 0-values in the hashtable (just for one frame)
+                   (game-object-update obj delta-time))))
 
 (defmethod game-object-has-tag ((obj game-object) tag)
   (member tag (game-object-tags obj)))
 
+;; Gets all objects colliding with the given object
+(defmacro get-object-collisions (obj)
+  `(if (game-object-collider ,obj)
+       (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*)
+       NIL))
+
 ;; Gets the first object colliding with the given object and with matching tag
 (defmacro get-tagged-object-collision (obj tag)
-  `(if (game-object-collider ,obj)
-       (let ((collisions (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*))) 
-         (loop for collider in collisions 
-                 when (game-object-has-tag (collider-parent collider) ,tag) 
-                 return (collider-parent collider)))
-       NIL))
+  `(let ((collisions (get-object-collisions ,obj)))
+     (loop for collider in collisions 
+             when (game-object-has-tag (collider-parent collider) ,tag) 
+             return (collider-parent collider))))
