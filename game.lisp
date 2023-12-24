@@ -24,9 +24,18 @@
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
                                             :collider (make-instance 'aabb-collider)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
-                                                             (make-instance 'behavior-player-attack :attack-rate 2 :projectile-velocity 10 :projectile-size 0.5))
+                                                             (make-instance 'behavior-player-attack
+                                                               :damage 1
+                                                               :fire-rate 2
+                                                               :pierce 0
+                                                               :projectile-velocity 10
+                                                               :projectile-size 0.5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-target (make-game-object :sprite (make-instance 'sprite :static NIL)
+                                          :collider (make-instance 'aabb-collider)
+                                          :behaviors (list (make-instance 'behavior-destructable :hp 3))
+                                          :tags '(behaviors::enemy)))
+           (test-target-2 (make-game-object :sprite (make-instance 'sprite :static NIL)
                                           :collider (make-instance 'aabb-collider)
                                           :behaviors (list (make-instance 'behavior-destructable :hp 3))
                                           :tags '(behaviors::enemy)))
@@ -60,6 +69,8 @@
       (game-object-register player-object)
       (game-object-set-pos test-target (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -2 0)))
       (game-object-register test-target)
+      (game-object-set-pos test-target-2 (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -4 0)))
+      (game-object-register test-target-2)
 
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)
                                               :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))

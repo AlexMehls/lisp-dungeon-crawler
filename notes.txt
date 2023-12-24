@@ -5,6 +5,7 @@ Shaders:
 
 TODO:
 level generation
+  enemy spawns in room definition
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
   ? prevent generation instead of blocking later
@@ -14,7 +15,16 @@ VFX
   visual effects (flashes on hit) -> add color tint to shader (implement like model-mats)
   partial transparency
   light?
-main gameplay (start: projectile + hp behavior)
+
+main gameplay
+  upgrades
+  enemy behaviors
+  ladder(?) to next floor
+  main menu
+  saving?
+  audio(?)
+  modular attacks(?)
+
 collisions with mask (only certain tags)
 remove *game-object-sprites*
 
