@@ -7,6 +7,7 @@
 
            :game-object-move :game-object-set-pos
            :game-object-update :game-objects-update
+           :game-objects-clear
            :game-object-has-tag
            :get-object-collisions :get-tagged-object-collision
            :get-object-behavior-by-subtype))
@@ -63,7 +64,11 @@
           (setf (gethash id *game-object-sprites*) (game-object-sprite obj)))))
 
 (defun game-object-delete-by-id (id)
-  (render-object-free (game-object-sprite (gethash id *game-objects*)))
+  (let ((game-obj (gethash id *game-objects*)))
+    (when game-obj
+          (let ((sprite-obj (game-object-sprite game-obj)))
+            (when sprite-obj
+                  (render-object-free sprite-obj)))))
   (remhash id *game-objects*)
   (remhash id *game-object-colliders*)
   (remhash id *game-object-sprites*))
@@ -94,6 +99,10 @@
   (loop for obj being the hash-values of game-objects
         do (when (eq (type-of obj) 'game-object) ; For some reason there are sometimes 0-values in the hashtable (just for one frame)
                    (game-object-update obj delta-time))))
+
+(defun game-objects-clear (game-objects)
+  (loop for id being the hash-keys of game-objects do
+          (game-object-delete-by-id id)))
 
 (defmethod game-object-has-tag ((obj game-object) tag)
   (member tag (game-object-tags obj)))

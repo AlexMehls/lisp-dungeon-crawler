@@ -1,5 +1,5 @@
 (defpackage :behaviors
-  (:use :common-lisp :game-object :behavior :player-input :collision :textures :sprite)
+  (:use :common-lisp :game-object :behavior :player-input :collision :textures :sprite :level-loading)
   (:export :behavior-update
            
            :behavior-player-movement
@@ -15,6 +15,8 @@
            :behavior-player-attack
            :behavior-player-attack-damage :behavior-player-attack-fire-rate :behavior-player-attack-pierce :behavior-player-attack-projectile-velocity :behavior-player-attack-projectile-size
            
+           :behavior-loading-zone
+
            :behavior-collision-test
            :behavior-collision-test-message :behavior-collision-test-label :behavior-collision-test-destroy))
 
@@ -131,6 +133,16 @@
                                                                            :damage damage :pierce pierce :target-tags '(enemy)
                                                                            :direction spawn-direction :velocity projectile-velocity))
                                                         :tags '(projectile))))))))
+
+(defclass behavior-loading-zone (behavior)
+    ((level-tiles :initarg :level-tiles)
+     (generation-random-state :initarg :generation-random-state)))
+
+(defmethod behavior-update ((behavior behavior-loading-zone) delta-time game-object)
+  (let ((player (get-tagged-object-collision game-object 'player)))
+    (when player
+          (with-slots (level-tiles generation-random-state) behavior
+            (load-next-level player level-tiles generation-random-state)))))
 
 (defclass behavior-collision-test (behavior)
     ((message :initarg :message

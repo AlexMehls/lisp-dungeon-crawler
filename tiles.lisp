@@ -3,7 +3,7 @@
   (:export :tile
            :tile-type :tile-layer
 
-           :make-tile-array
+           :make-tile-array :tile-array-clear
            :tile-array-tiles :tile-array-offset :tile-array-collider-objects
            :tile-array-register-tiles :tile-array-free-tiles
            :tile-array-delete-collider-objects :tile-array-setup-collider-objects
@@ -75,8 +75,16 @@
         (dotimes (j w)
           (let ((tile (aref tiles i j)))
             (when (and tile (eq (tile-type tile) 'tile-wall))
-                  (game-object-register (make-game-object :collider (make-instance 'aabb-collider :position (3d-vectors:v+ (indices-to-position i j h) (tile-array-offset obj)))
-                                                          :tags `(,(tile-type tile)))))))))))
+                  (let ((col-obj (make-game-object :collider (make-instance 'aabb-collider :position (3d-vectors:v+ (indices-to-position i j h) (tile-array-offset obj))) 
+                                                   :tags `(,(tile-type tile)))))
+                    (game-object-register col-obj)
+                    (push col-obj (slot-value obj 'collider-objects))))))))))
+
+(defmethod tile-array-clear ((obj tile-array))
+  (tile-array-delete-collider-objects obj)
+  (tile-array-free-tiles obj)
+  (with-slots (tiles) obj
+    (setf tiles (make-array (array-dimensions tiles) :initial-element NIL))))
 
 (defmethod tile-array-add-room ((obj tile-array) (room-obj room-tiles) offset-x offset-y)
   (with-slots (tiles) obj

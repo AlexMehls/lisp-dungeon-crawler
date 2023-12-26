@@ -5,10 +5,13 @@ Shaders:
 
 TODO:
 level generation
+  !!! Remove test-button for level loading
+  more settings (each floor different)
+  spawn loading zone in end-room
   enemy spawns in room definition
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
-  ? prevent generation instead of blocking later
+  ? prevent generation instead of blocking later -> at least has to connect to existing rooms
   ? weighted room randomness
 
 VFX
@@ -21,6 +24,8 @@ main gameplay
   enemy behaviors
   ladder(?) to next floor
   main menu
+  fog-of-war?
+  minimap?
   saving?
   audio(?)
   modular attacks(?)

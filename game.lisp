@@ -1,7 +1,7 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-generation :camera))
+        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-loading :camera))
 
 (in-package :game)
 
@@ -44,7 +44,10 @@
            (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (is-fullscreen NIL)
            (level-generation-seed t) ; t = random, otherwise int or simple-array
-           )
+           (level-generation-random-state (sb-ext:seed-random-state level-generation-seed))
+           (test-loading-zone (make-game-object :sprite (make-instance 'sprite :static NIL)
+                                          :collider (make-instance 'aabb-collider :trigger T)
+                                          :behaviors (list (make-instance 'behavior-loading-zone :level-tiles level-tiles :generation-random-state level-generation-random-state)))))
       
       (setf *active-camera* camera)
 
@@ -62,15 +65,16 @@
       ;(tile-array-setup-collider-objects test-tiles)
       ;(tile-array-register-tiles test-tiles)
 
-      (game-object-set-pos player-object (generate-level level-tiles *room-1* *room-2* *rooms* 20 10 (sb-ext:seed-random-state level-generation-seed)))
-      (tile-array-register-tiles level-tiles)
-      (tile-array-setup-collider-objects level-tiles)
+      (load-next-level player-object level-tiles level-generation-random-state)
 
       (game-object-register player-object)
       (game-object-set-pos test-target (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -2 0)))
       (game-object-register test-target)
       (game-object-set-pos test-target-2 (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -4 0)))
       (game-object-register test-target-2)
+
+      (game-object-set-pos test-loading-zone (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 4 0)))
+      (game-object-register test-loading-zone)
 
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static NIL)
                                               :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))
@@ -157,6 +161,8 @@
                             ;                                      ", "
                             ;                                      (write-to-string (3d-vectors:vy mouse-pos)))))
 
+                            (when (get-button-press 4)
+                                  (load-next-level player-object level-tiles level-generation-random-state))
                             (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
                               (game-objects-update *game-objects* delta-time)))
                           

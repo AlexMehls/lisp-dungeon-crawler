@@ -13,6 +13,7 @@
                (:file "rooms")
                (:file "tiles" :depends-on ("render-object" "textures" "game-object" "collision" "rooms"))
                (:file "level-generation" :depends-on ("tiles" "rooms"))
-               
-               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision" "textures" "sprite"))
-               (:file "game" :depends-on ("textures" "collision" "player-input" "sprite" "game-object" "behaviors" "tiles" "rooms" "level-generation" "camera"))))
+               (:file "level-loading" :depends-on ("game-object" "tiles" "rooms" "level-generation"))
+
+               (:file "behaviors" :depends-on ("game-object" "behavior" "player-input" "collision" "textures" "sprite" "level-loading"))
+               (:file "game" :depends-on ("textures" "collision" "player-input" "sprite" "game-object" "behaviors" "tiles" "rooms" "level-loading" "camera"))))
