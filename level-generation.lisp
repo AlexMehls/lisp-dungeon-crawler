@@ -1,5 +1,5 @@
 (defpackage :level-generation
-  (:use :common-lisp :tiles :rooms)
+  (:use :common-lisp :tiles :room)
   (:export :generate-level))
 
 (in-package :level-generation)

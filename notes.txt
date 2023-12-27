@@ -13,6 +13,7 @@ level generation
   special rooms + limits? -> otherwise spawn specials in any room
   ? prevent generation instead of blocking later -> at least has to connect to existing rooms
   ? weighted room randomness
+  Replace room::tile-type with tiles::tile-type
 
 VFX
   visual effects (flashes on hit) -> add color tint to shader (implement like model-mats)

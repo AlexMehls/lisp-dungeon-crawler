@@ -1,7 +1,7 @@
 (defpackage :game
 (:use :gtk :gdk :gdk-pixbuf :gobject
         :glib :gio :pango :cairo :common-lisp
-        :textures :collision :player-input :sprite :game-object :behaviors :tiles :rooms :level-loading :camera))
+        :textures :collision :player-input :sprite :game-object :behaviors :tiles :level-loading :camera))
 
 (in-package :game)
 

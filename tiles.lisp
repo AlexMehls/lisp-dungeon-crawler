@@ -1,5 +1,5 @@
 (defpackage :tiles
-  (:use :common-lisp :render-object :textures :game-object :collision :rooms)
+  (:use :common-lisp :render-object :textures :game-object :collision :room)
   (:export :tile
            :tile-type :tile-layer
 
@@ -94,8 +94,8 @@
               (j (+ j-room offset-x)))
           (when (and (>= i 0) (< i tiles-h) (>= j 0) (< j tiles-w))
                 (case tile-type-symbol
-                  (rooms::tile-floor (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10)))
-                  (rooms::tile-wall (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-wall :texture *test-wall-texture* :layer 10))))))))))
+                  (room::tile-floor (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10)))
+                  (room::tile-wall (setf (aref tiles i j) (make-instance 'tile :tile-type 'tile-wall :texture *test-wall-texture* :layer 10))))))))))
 
 (defmethod tile-array-block-connection ((obj tile-array) (room-obj room-tiles) direction offset-x offset-y)
   (with-slots (tiles) obj
