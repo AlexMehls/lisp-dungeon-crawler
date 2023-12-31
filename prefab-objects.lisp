@@ -17,3 +17,8 @@
                                         :damage damage :pierce pierce :target-tags '(behaviors::enemy)
                                         :direction direction :velocity velocity))
                     :tags '(behaviors::projectile)))
+
+(defprefab prefab-stairs (position level-tiles generation-random-state)
+  (make-game-object :sprite (make-instance 'sprite :position position :static T)
+                    :collider (make-instance 'aabb-collider :position position :trigger T)
+                    :behaviors (list (make-instance 'behavior-loading-zone :level-tiles level-tiles :generation-random-state generation-random-state))))

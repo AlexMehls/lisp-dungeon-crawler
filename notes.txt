@@ -4,10 +4,11 @@ Shaders:
     3) RGBA, with blending
 
 TODO:
+FIX static sprites added later (stairs object) -> sometimes some sprites get "deleted" (?)
+
 level generation
   !!! Remove test-button for level loading
   more settings (each floor different)
-  spawn loading zone in end-room
   enemy spawns in room definition
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room

@@ -2,9 +2,9 @@
   (:use :common-lisp)
   (:export :make-hash-table-with-pairs :make-connections-array :connection-index-complement :next-indices
            :room-tiles
-           :room-tiles-keys :room-tiles-layout :room-tiles-connections
+           :room-tiles-keys :room-tiles-layout :room-tiles-connections :room-tiles-game-objects
            :copy-room-tiles-rotated
-           :loop-room-tiles :room-tiles-find-connections :room-tiles-can-connect))
+           :loop-room-tiles :room-indices-to-position :room-tiles-find-connections :room-tiles-can-connect ))
 
 (in-package :room)
 
@@ -49,7 +49,12 @@
      ;; Connections: array with 4 elements (starts with top, then clockwise): Each is list of pairs (offset, size) [x-offset/-size for top/bottom and y-offset/-size for left/right]
      (connections :initarg :connections
                   :reader room-tiles-connections
-                  :initform (make-connections-array))))
+                  :initform (make-connections-array))
+     ;; Game-Objects: objects that are spawned on room creation (list of (i, j, object-type)) [i and j can be floats]
+     ;; "object-type" is a symbol that represents what kind of object should be spawned (e.g. a specific enemy, a generic (random) enemy, the stairs to the next level)
+     (game-objects :initarg :game-objects
+                   :reader room-tiles-game-objects
+                   :initform '())))
 
 (defun inverted-connection (connection size)
   (let ((new-connection (reverse connection)))
@@ -100,6 +105,11 @@
            (dotimes (,j ,w)
              (let ((,tile-type (gethash (aref ,layout ,i ,j) (room-tiles-keys ,room-tiles))))
                ,@body)))))))
+
+(defmacro room-indices-to-position (room-tiles i j room-offset-x room-offset-y)
+  `(let ((internal-offset-x ,j)
+         (internal-offset-y (- (array-dimension (room-tiles-layout ,room-tiles) 0) ,i 1)))
+     (3d-vectors:vec2 (+ ,room-offset-x internal-offset-x) (+ ,room-offset-y internal-offset-y))))
 
 ;; TODO: Remove? -> Unused
 ;; Finds all possibilities how a room can connect to a given connection

@@ -46,7 +46,8 @@
                    :connections (make-connections-array :top '((7 2))
                                                         :bottom '((7 2))  
                                                         :left '((7 2))
-                                                        :right '((7 2)))))
+                                                        :right '((7 2)))
+                   :game-objects '((7.5 7.5 room::stairs))))
 
 (defvar *room-crossroad* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W room::tile-wall) (F room::tile-floor)))

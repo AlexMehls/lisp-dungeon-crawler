@@ -1,5 +1,5 @@
 (defpackage :level-generation
-  (:use :common-lisp :tiles :room)
+  (:use :common-lisp :tiles :room :prefab-object :game-object)
   (:export :generate-level))
 
 (in-package :level-generation)
@@ -99,6 +99,29 @@
                                  (room-tiles-can-connect (aref layout i j) (aref layout i-other j-other) direction))
                       (tile-array-block-connection tile-array (aref layout i j) direction x-offset y-offset))))))))))
 
+(defun spawn-object (type position tile-array &optional (random-state *random-state*))
+  (format t "Spawning ~a at ~a~%" type position)
+  (let ((obj (case type
+               (room::stairs (make-prefab-object 'prefab-stairs position tile-array random-state))
+               (otherwise (format t "Unknown spawnable object: ~a~%" type)))))
+    (when obj
+          (game-object-register obj))))
+
+(defun spawn-game-objects (tile-array layout &optional (random-state *random-state*))
+  (destructuring-bind (layout-h layout-w) (array-dimensions layout)
+    (dotimes (i layout-h)
+      (dotimes (j layout-w)
+        (let ((room-obj (aref layout i j)))
+          (when room-obj
+                (let ((x-offset (* j +room-size+))
+                      (y-offset (* (- layout-h i 1) +room-size+))
+                      (to-spawn (room-tiles-game-objects room-obj)))
+                  (loop for spawn-info in to-spawn do
+                          (format t "~a ~a ~a ~a~%" x-offset y-offset (first spawn-info) (second spawn-info))
+                          (let ((spawn-type (third spawn-info))
+                                (spawn-pos (3d-vectors:v+ (tile-array-offset tile-array) (room-indices-to-position room-obj (first spawn-info) (second spawn-info) x-offset y-offset))))
+                            (spawn-object spawn-type spawn-pos tile-array random-state))))))))))
+
 (defun generate-level (tile-array starting-room ending-room rooms &optional (room-count NIL) (attempts 1) (random-state *random-state*))
   (format t "Generating level...~%")
   (let ((tiles (tile-array-tiles tile-array))
@@ -119,6 +142,7 @@
           (loop for element in (room-layout-dead-ends room-layout) do
                   (format t "At ~a, ~a (Distance ~a)~%" (first element) (second element) (third element)))
           (make-rooms-from-layout tile-array (room-layout-layout room-layout))
-          (block-invalid-connections tile-array (room-layout-layout room-layout)))))
+          (block-invalid-connections tile-array (room-layout-layout room-layout))
+          (spawn-game-objects tile-array (room-layout-layout room-layout) random-state))))
     (format t "...Done~%")
     starting-pos))
