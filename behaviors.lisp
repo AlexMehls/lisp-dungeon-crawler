@@ -1,5 +1,5 @@
 (defpackage :behaviors
-  (:use :common-lisp :game-object :behavior :player-input :collision :textures :sprite :level-loading)
+  (:use :common-lisp :game-object :behavior :player-input :collision :textures :sprite :level-loading :prefab-object)
   (:export :behavior-update
            
            :behavior-player-movement
@@ -119,20 +119,8 @@
         (when (get-button-hold 1)
               (setf cooldown (/ 1 fire-rate))
               (let* ((spawn-position (collider-position (game-object-collider game-object))) ; Assumes that player has a collider
-                     (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position)))
-                     (spawn-rotation (atan (- (3d-vectors:vx spawn-direction)) (3d-vectors:vy spawn-direction))))
-                (game-object-register (make-game-object :sprite (make-instance 'sprite
-                                                                  :position spawn-position
-                                                                  :rotation spawn-rotation
-                                                                  :size (3d-vectors:vec2 projectile-size projectile-size)
-                                                                  :texture *test-circle*
-                                                                  :layer 11
-                                                                  :static NIL)
-                                                        :collider (make-instance 'circle-collider :position spawn-position :radius (/ projectile-size 2) :trigger T)
-                                                        :behaviors (list (make-instance 'behavior-projectile
-                                                                           :damage damage :pierce pierce :target-tags '(enemy)
-                                                                           :direction spawn-direction :velocity projectile-velocity))
-                                                        :tags '(projectile))))))))
+                     (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position))))
+                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity)))))))
 
 (defclass behavior-loading-zone (behavior)
     ((level-tiles :initarg :level-tiles)
