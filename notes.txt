@@ -18,6 +18,9 @@ level generation
 
 VFX
   visual effects (flashes on hit) -> add color tint to shader (implement like model-mats)
+      -> second buffer for colors (or maybe interleaved in one?)
+      -> slot IDs have to match up, but model mats don't need updating when color changes
+      -> how to handle updates? -> static/dynamic position != color -> all colors dynamic? or selective updates directly to buffer?
   partial transparency
   light?
 

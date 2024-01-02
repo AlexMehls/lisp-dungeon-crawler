@@ -100,7 +100,6 @@
                       (tile-array-block-connection tile-array (aref layout i j) direction x-offset y-offset))))))))))
 
 (defun spawn-object (type position tile-array &optional (random-state *random-state*))
-  (format t "Spawning ~a at ~a~%" type position)
   (let ((obj (case type
                (room::stairs (make-prefab-object 'prefab-stairs position tile-array random-state))
                (otherwise (format t "Unknown spawnable object: ~a~%" type)))))
@@ -117,7 +116,6 @@
                       (y-offset (* (- layout-h i 1) +room-size+))
                       (to-spawn (room-tiles-game-objects room-obj)))
                   (loop for spawn-info in to-spawn do
-                          (format t "~a ~a ~a ~a~%" x-offset y-offset (first spawn-info) (second spawn-info))
                           (let ((spawn-type (third spawn-info))
                                 (spawn-pos (3d-vectors:v+ (tile-array-offset tile-array) (room-indices-to-position room-obj (first spawn-info) (second spawn-info) x-offset y-offset))))
                             (spawn-object spawn-type spawn-pos tile-array random-state))))))))))
