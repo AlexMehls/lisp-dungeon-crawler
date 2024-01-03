@@ -32,49 +32,34 @@
                                                                :projectile-size 0.5))
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-target (make-game-object :sprite (make-instance 'sprite :static NIL)
-                                          :collider (make-instance 'aabb-collider)
+                                          :collider (make-instance 'aabb-collider :trigger T)
                                           :behaviors (list (make-instance 'behavior-destructable :hp 3))
                                           :tags '(behaviors::enemy)))
            (test-target-2 (make-game-object :sprite (make-instance 'sprite :static NIL)
-                                          :collider (make-instance 'aabb-collider)
+                                          :collider (make-instance 'aabb-collider :trigger T)
                                           :behaviors (list (make-instance 'behavior-destructable :hp 3))
                                           :tags '(behaviors::enemy)))
-           ;(test-tiles (make-tile-array 64 64 (3d-vectors:vec2 -32 -32)))
-           ;(stress-test-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
+
            (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (is-fullscreen NIL)
            (level-generation-seed t) ; t = random, otherwise int or simple-array
            (level-generation-random-state (sb-ext:seed-random-state level-generation-seed))
-           (test-loading-zone (make-game-object :sprite (make-instance 'sprite :static NIL)
+           (test-enemy (make-game-object :sprite (make-instance 'sprite :static NIL)
                                           :collider (make-instance 'aabb-collider :trigger T)
-                                          :behaviors (list (make-instance 'behavior-loading-zone :level-tiles level-tiles :generation-random-state level-generation-random-state)))))
+                                          :behaviors (list (make-instance 'behavior-destructable :hp 3)
+                                                          (make-instance 'behavior-simple-movement :stop-distance 2))
+                                          :tags '(behaviors::enemy))))
       
       (setf *active-camera* camera)
 
-      ;(with-slots (tiles::tiles) stress-test-tiles
-      ;  (destructuring-bind (tiles-h tiles-w) (array-dimensions tiles::tiles)
-      ;    (dotimes (i tiles-h)
-      ;      (dotimes (j tiles-w)
-      ;        (setf (aref tiles::tiles i j) (make-instance 'tile :tile-type 'tile-floor :texture *test-floor-texture* :layer -10))))))
-      ;(tile-array-register-tiles stress-test-tiles)
-
-      ;(tile-array-add-room test-tiles *room-1* 24 24)
-      ;(tile-array-add-room test-tiles *room-1* 24 (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
-      ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) 24)
-      ;(tile-array-add-room test-tiles *room-1* (+ 24 (array-dimension (room-tiles-layout *room-1*) 1)) (+ 24 (array-dimension (room-tiles-layout *room-1*) 0)))
-      ;(tile-array-setup-collider-objects test-tiles)
-      ;(tile-array-register-tiles test-tiles)
-
       (load-next-level player-object level-tiles level-generation-random-state)
 
-      (game-object-register player-object)
       (game-object-set-pos test-target (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -2 0)))
       (game-object-register test-target)
       (game-object-set-pos test-target-2 (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -4 0)))
       (game-object-register test-target-2)
-
-      (game-object-set-pos test-loading-zone (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 4 0)))
-      (game-object-register test-loading-zone)
+      (game-object-set-pos test-enemy (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 4 0)))
+      (game-object-register test-enemy)
 
       (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static T)
                                               :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))
@@ -162,7 +147,11 @@
                             ;                                      (write-to-string (3d-vectors:vy mouse-pos)))))
 
                             (when (get-button-press 4)
-                                  (load-next-level player-object level-tiles level-generation-random-state))
+                                  (load-next-level player-object level-tiles level-generation-random-state)) ; TODO: remove
+                            (when (get-button-press 5)
+                                  (setf (behavior-simple-movement-target-position (get-object-behavior-by-subtype test-enemy 'behavior-simple-movement))
+                                        (collider-position (game-object-collider player-object)))) ; TODO: remove
+                            
                             (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
                               (game-objects-update *game-objects* delta-time)))
                           

@@ -15,6 +15,9 @@
            :behavior-player-attack
            :behavior-player-attack-damage :behavior-player-attack-fire-rate :behavior-player-attack-pierce :behavior-player-attack-projectile-velocity :behavior-player-attack-projectile-size
            
+           :behavior-simple-movement
+           :behavior-simple-movement-move-speed :behavior-simple-movement-stop-distance :behavior-simple-movement-target-position
+
            :behavior-loading-zone
 
            :behavior-collision-test
@@ -121,6 +124,29 @@
               (let* ((spawn-position (collider-position (game-object-collider game-object))) ; Assumes that player has a collider
                      (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position))))
                 (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity)))))))
+
+;; Simple movement behavior (no acceleration; no pathfinding; can stop at a distance from the target)
+(defclass behavior-simple-movement (behavior)
+    ((move-speed :initarg :move-speed
+                 :initform 3
+                 :accessor behavior-simple-movement-move-speed)
+     (stop-distance :initarg :stop-distance
+                    :initform 0
+                    :accessor behavior-simple-movement-stop-distance)
+     (target-position :initarg :target-position
+                      :initform NIL
+                      :accessor behavior-simple-movement-target-position)))
+
+(defmethod behavior-update ((behavior behavior-simple-movement) delta-time game-object)
+  (with-slots (move-speed stop-distance target-position) behavior
+    (when target-position
+          (let* ((object-position (collider-position (game-object-collider game-object)))
+                 (distance-vec (3d-vectors:v- target-position object-position))
+                 (distance (3d-vectors:v2norm distance-vec))
+                 (remaining-move-distance (- distance stop-distance))
+                 (move-distance (max (min (* move-speed delta-time) remaining-move-distance) 0)))
+            (when (> move-distance 0)
+                  (game-object-move game-object (3d-vectors:v* (3d-vectors:vunit distance-vec) move-distance)))))))
 
 (defclass behavior-loading-zone (behavior)
     ((level-tiles :initarg :level-tiles)
