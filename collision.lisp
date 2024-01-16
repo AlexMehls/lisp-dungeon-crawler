@@ -40,6 +40,16 @@
           :accessor rectangle-collider-rotation
           :initform 0)))
 
+;; Meant to be used for line-of-sight checks (i.e. raycasting)
+(defclass line-collider (collider)
+    ((length :initarg :length
+             :accessor line-collider-length
+             :initform 1)
+     ;; Default rotation is vertical
+     (rot :initarg :rotation
+          :accessor line-collider-rotation
+          :initform 0)))
+
 (defstruct (rectangle-points (:constructor create-rectangle-points (A B C D)))
   A B C D)
 
