@@ -1,11 +1,14 @@
 (defpackage :collision
   (:use :common-lisp)
-  (:export :circle-collider :aabb-collider :rectangle-collider
+  (:export :circle-collider :aabb-collider :rectangle-collider :line-collider
            :collider-get-collision :collider-resolve-collision :collider-get-collisions :collider-resolve-collisions
+           :raycast-get-collisions :line-of-sight-get-collisions
+
            :collider-position :collider-parent :collider-is-trigger
            :circle-collider-radius
            :aabb-collider-size
-           :rectangle-collider-size :rectangle-collider-rotation))
+           :rectangle-collider-size :rectangle-collider-rotation
+           :line-collider-length :line-collider-rotation))
 
 (in-package :collision)
 
@@ -72,6 +75,18 @@
          (D (3d-vectors:v+ pos (3d-vectors:v* half-size (3d-vectors:vec2 -1 1)))))
     (create-rectangle-points A B C D)))
 
+(defstruct (line-points (:constructor create-line-points (A B)))
+  A B)
+
+(defun make-line-points (pos length rot)
+  (let* ((cos-rot (cos rot))
+         (sin-rot (sin rot))
+         (rot-mat (3d-matrices:mat2 `(,cos-rot ,(- sin-rot) ,sin-rot ,cos-rot)))
+         (half-length-vec (3d-vectors:vec2 0 (/ length 2)))
+         (A (3d-vectors:v+ pos (3d-matrices:m* rot-mat half-length-vec)))
+         (B (3d-vectors:v+ pos (3d-matrices:m* rot-mat (3d-vectors:v* half-length-vec (3d-vectors:vec2 1 -1))))))
+    (create-line-points A B)))
+
 ;; Collsion helpers
 
 ;(defun vector-projection (v1 v2)
@@ -135,6 +150,35 @@
                (multi-projection-check-ends-of-line E F `(,A ,B ,C ,D))
                (multi-projection-check-ends-of-line E H `(,A ,B ,C ,D)))))))
 
+(defmethod rectangle-points-line-points-get-collision ((rect rectangle-points) (line line-points))
+  (with-slots (A B) line
+    (with-slots ((C A) (D B) (E C) (F D)) rect
+      (not (multi-projection-check-ends-of-line A B `(,C ,D ,E ,F))))))
+
+(defmethod line-points-get-collision ((line1 line-points) (line2 line-points))
+  (with-slots (A B) line1
+    (with-slots ((C A) (D B)) line2
+      (let* ((A-x (3d-vectors:vx A))
+             (A-y (3d-vectors:vy A))
+             (B-x (3d-vectors:vx B))
+             (B-y (3d-vectors:vy B))
+             (C-x (3d-vectors:vx C))
+             (C-y (3d-vectors:vy C))
+             (D-x (3d-vectors:vx D))
+             (D-y (3d-vectors:vy D))
+             (s1-x (- B-x A-x))
+             (s1-y (- B-y A-y))
+             (s2-x (- D-x C-x))
+             (s2-y (- D-y C-y))
+             (divisor (+ (* (- s2-x) (s1-y)) (* s1-x s2-y)))
+             (s-val (/ (+ (* (- s1-y) (- A-x C-x))
+                          (* s1-x (- A-y C-y)))
+                       divisor))
+             (t-val (/ (- (* s2-x (- A-y C-y))
+                          (* s2-y (- A-x C-x)))
+                       divisor)))
+        (and (>= s-val 0) (<= s-val 1) (>= t-val 0) (<= t-val 1))))))
+
 ;; Get collisions
 ;; Returns true if colliders are overlapping
 
@@ -185,6 +229,13 @@
           (line-intersect-circle col1 C D)
           (line-intersect-circle col1 D A)))))
 
+(defmethod collider-get-collision ((col1 circle-collider) (col2 line-collider))
+  (let ((line (make-line-points (collider-position col2)
+                                (line-collider-length col2)
+                                (line-collider-rotation col2))))
+    (with-slots (A B) line
+      (line-intersect-circle col1 A B))))
+
 (defmethod collider-get-collision ((col1 aabb-collider) (col2 circle-collider))
   (collider-get-collision col2 col1))
 
@@ -201,6 +252,10 @@
   (rectangle-points-get-collision (make-rectangle-points (collider-position col1) (aabb-collider-size col1))
                                   (make-rotated-rectangle-points (collider-position col2) (rectangle-collider-size col2) (rectangle-collider-rotation col2))))
 
+(defmethod collider-get-collision ((col1 aabb-collider) (col2 line-collider))
+  (rectangle-points-line-points-get-collision (make-rectangle-points (collider-position col1) (aabb-collider-size col1))
+                                              (make-line-points (collider-position col2) (line-collider-length col2) (line-collider-rotation col2))))
+
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 circle-collider))
   (collider-get-collision col2 col1))
 
@@ -210,6 +265,23 @@
 (defmethod collider-get-collision ((col1 rectangle-collider) (col2 rectangle-collider))
   (rectangle-points-get-collision (make-rotated-rectangle-points (collider-position col1) (rectangle-collider-size col1) (rectangle-collider-rotation col1))
                                   (make-rotated-rectangle-points (collider-position col2) (rectangle-collider-size col2) (rectangle-collider-rotation col2))))
+
+(defmethod collider-get-collision ((col1 rectangle-collider) (col2 line-collider))
+  (rectangle-points-line-points-get-collision (make-rotated-rectangle-points (collider-position col1) (rectangle-collider-size col1) (rectangle-collider-rotation col1))
+                                              (make-line-points (collider-position col2) (line-collider-length col2) (line-collider-rotation col2))))
+
+(defmethod collider-get-collision ((col1 line-collider) (col2 circle-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 line-collider) (col2 aabb-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 line-collider) (col2 rectangle-collider))
+  (collider-get-collision col2 col1))
+
+(defmethod collider-get-collision ((col1 line-collider) (col2 line-collider))
+  (line-points-get-collision (make-line-points (collider-position col1) (line-collider-length col1) (line-collider-rotation col1))
+                             (make-line-points (collider-position col2) (line-collider-length col2) (line-collider-rotation col2))))
 
 ;; Collision resolution
 ;; Takes two colliders as input, as well as an atempted movement (of the first collider)
@@ -280,3 +352,16 @@
 ;                 (when (< (abs new-dx) (abs min-dx)) (setf min-dx new-dx))
 ;                 (when (< (abs new-dy) (abs min-dy)) (setf min-dy new-dy))))
 ;    (3d-vectors:vec2 min-dx min-dy)))
+
+;; direction is a rotation value (TODO: change to direction vector?)
+(defun raycast-get-collisions (position direction colliders &optional (limit 1000))
+  (let ((line-col (make-instance 'line-collider :position position :length limit :rotation direction)))
+    (collider-get-collisions line-col colliders)))
+
+(defun line-of-sight-get-collisions (point-A point-B colliders)
+  (let* ((pos (3d-vectors:v/ (3d-vectors:v+ point-A point-B) 2))
+         (dist (3d-vectors:distance point-A point-B))
+         (dist-vec-unit (3d-vectors:vunit (3d-vectors:v- point-B point-A)))
+         (rot (atan (- (3d-vectors:vx dist-vec-unit)) (3d-vectors:vy dist-vec-unit)))
+         (line-col (make-instance 'line-collider :position pos :length dist :rotation rot)))
+    (collider-get-collisions line-col colliders)))
