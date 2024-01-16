@@ -170,7 +170,7 @@
              (s1-y (- B-y A-y))
              (s2-x (- D-x C-x))
              (s2-y (- D-y C-y))
-             (divisor (+ (* (- s2-x) (s1-y)) (* s1-x s2-y)))
+             (divisor (+ (* (- s2-x) s1-y) (* s1-x s2-y)))
              (s-val (/ (+ (* (- s1-y) (- A-x C-x))
                           (* s1-x (- A-y C-y)))
                        divisor))
@@ -360,7 +360,7 @@
 
 (defun line-of-sight-get-collisions (point-A point-B colliders)
   (let* ((pos (3d-vectors:v/ (3d-vectors:v+ point-A point-B) 2))
-         (dist (3d-vectors:distance point-A point-B))
+         (dist (3d-vectors:vdistance point-A point-B))
          (dist-vec-unit (3d-vectors:vunit (3d-vectors:v- point-B point-A)))
          (rot (atan (- (3d-vectors:vx dist-vec-unit)) (3d-vectors:vy dist-vec-unit)))
          (line-col (make-instance 'line-collider :position pos :length dist :rotation rot)))
