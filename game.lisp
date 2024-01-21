@@ -21,6 +21,7 @@
            (zoom-strength 0.1)
            (zoom-level 0)
            (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
+           (hp-display (gtk-label-new "HP:"))
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
                                             :collider (make-instance 'aabb-collider :trigger T)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
@@ -82,6 +83,7 @@
       (gtk-overlay-add-overlay overlay fixed-container)
       (gtk-fixed-put fixed-container box 0 0)
       (gtk-box-pack-start box fps-counter)
+      (gtk-box-pack-start box hp-display)
       (gtk-box-pack-start box debug-display)
 
       (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask :scroll-mask))
@@ -156,6 +158,8 @@
                             (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
                               (game-objects-update *game-objects* delta-time)))
                           
+                          (gtk-label-set-text hp-display (format nil "HP: ~a" (behavior-destructable-hp (get-object-behavior-by-subtype player-object 'behavior-destructable))))
+
                           (setf (camera-position *active-camera*) (sprite-position (game-object-sprite player-object)))
                           (let ((scroll (get-mouse-scroll)))
                             (unless (= scroll 0)
