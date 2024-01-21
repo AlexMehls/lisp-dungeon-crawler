@@ -5,6 +5,7 @@ Shaders:
 
 TODO:
 FIX static sprites added later (stairs object) -> sometimes some sprites get "deleted" (?)
+Change destructable-behavior to support custom "destruction" effects (especially for player)
 
 level generation
   !!! Remove test-button for level loading

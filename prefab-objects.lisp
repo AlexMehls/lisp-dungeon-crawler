@@ -18,6 +18,23 @@
                                         :direction direction :velocity velocity))
                     :tags '(behaviors::projectile)))
 
+(defprefab prefab-basic-contact-enemy (position)
+  (make-game-object :sprite (make-instance 'sprite
+                              :position position
+                              :rotation 0
+                              :size (3d-vectors:vec2 0.75 0.75)
+                              :texture *missing-texture*
+                              :layer -1
+                              :static NIL)
+                    :collider (make-instance 'aabb-collider :position position :size (3d-vectors:vec2 0.75 0.75) :trigger T)
+                    :behaviors (list (make-instance 'behavior-destructable :hp 3)
+                                     (make-instance 'behavior-simple-movement :stop-distance 0)
+                                     (make-instance 'behavior-enemy-contact
+                                       :damage 1
+                                       :attack-rate 2
+                                       :vision-range 10))
+                    :tags '(behaviors::enemy)))
+
 (defprefab prefab-stairs (position level-tiles generation-random-state)
   (make-game-object :sprite (make-instance 'sprite :position position :static T)
                     :collider (make-instance 'aabb-collider :position position :trigger T)

@@ -70,7 +70,11 @@
                    :connections (make-connections-array :top '((7 2))
                                                         :bottom '((7 2))  
                                                         :left '((7 2))
-                                                        :right '((7 2)))))
+                                                        :right '((7 2)))
+                           :game-objects '((2 2 room::enemy-contact)
+                                           (2 13 room::enemy-contact)
+                                           (13 2 room::enemy-contact)
+                                           (13 13 room::enemy-contact))))
 
 (defvar *room-t-junction-not-B* (make-instance 'room-tiles
                    :keys (make-hash-table-with-pairs '((W room::tile-wall) (F room::tile-floor)))

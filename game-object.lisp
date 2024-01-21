@@ -8,8 +8,9 @@
            :game-object-move :game-object-set-pos
            :game-object-update :game-objects-update
            :game-objects-clear
-           :game-object-has-tag
+           :game-object-has-tag :get-tagged-object
            :get-object-collisions :get-tagged-object-collision
+           :get-objects-line-of-sight-collisions :get-tagged-objects-line-of-sight-collisions
            :get-object-behavior-by-subtype))
 
 (in-package :game-object)
@@ -107,7 +108,13 @@
 (defmethod game-object-has-tag ((obj game-object) tag)
   (member tag (game-object-tags obj)))
 
-;; Gets all objects colliding with the given object
+;; Gets the first object with the given tag
+(defmacro get-tagged-object (tag)
+  `(loop for obj being the hash-values of *game-objects*
+           when (game-object-has-tag obj ,tag) 
+           return obj))
+
+;; Gets all colliders colliding with the given object
 (defmacro get-object-collisions (obj)
   `(if (game-object-collider ,obj)
        (collider-get-collisions (game-object-collider ,obj) *game-object-colliders*)
@@ -117,6 +124,21 @@
 (defmacro get-tagged-object-collision (obj tag)
   `(let ((collisions (get-object-collisions ,obj)))
      (loop for collider in collisions 
+             when (game-object-has-tag (collider-parent collider) ,tag) 
+             return (collider-parent collider))))
+
+;; Gets all colliders blocking line-of-sight between given objects
+(defmacro get-objects-line-of-sight-collisions (obj1 obj2)
+  `(if (and (game-object-collider ,obj1) (game-object-collider ,obj2))
+       (line-of-sight-get-collisions (collider-position (game-object-collider ,obj1))
+                                     (collider-position (game-object-collider ,obj2))
+                                     *game-object-colliders*)
+       NIL))
+
+;; Gets the first object blocking line-of-sight between given objects and with matching tag
+(defmacro get-tagged-objects-line-of-sight-collisions (obj1 obj2 tag)
+  `(let ((collisions (get-objects-line-of-sight-collisions ,obj1 ,obj2)))
+     (loop for collider in collisions
              when (game-object-has-tag (collider-parent collider) ,tag) 
              return (collider-parent collider))))
 

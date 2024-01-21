@@ -150,11 +150,6 @@
                (multi-projection-check-ends-of-line E F `(,A ,B ,C ,D))
                (multi-projection-check-ends-of-line E H `(,A ,B ,C ,D)))))))
 
-(defmethod rectangle-points-line-points-get-collision ((rect rectangle-points) (line line-points))
-  (with-slots (A B) line
-    (with-slots ((C A) (D B) (E C) (F D)) rect
-      (not (multi-projection-check-ends-of-line A B `(,C ,D ,E ,F))))))
-
 (defmethod line-points-get-collision ((line1 line-points) (line2 line-points))
   (with-slots (A B) line1
     (with-slots ((C A) (D B)) line2
@@ -178,6 +173,13 @@
                           (* s2-y (- A-x C-x)))
                        divisor)))
         (and (>= s-val 0) (<= s-val 1) (>= t-val 0) (<= t-val 1))))))
+
+(defmethod rectangle-points-line-points-get-collision ((rect rectangle-points) (line line-points))
+  (with-slots (A B C D) rect
+    (or (line-points-get-collision line (create-line-points A B))
+        (line-points-get-collision line (create-line-points B C))
+        (line-points-get-collision line (create-line-points C D))
+        (line-points-get-collision line (create-line-points D A)))))
 
 ;; Get collisions
 ;; Returns true if colliders are overlapping

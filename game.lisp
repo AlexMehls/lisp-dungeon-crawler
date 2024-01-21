@@ -22,14 +22,15 @@
            (zoom-level 0)
            (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
-                                            :collider (make-instance 'aabb-collider)
+                                            :collider (make-instance 'aabb-collider :trigger T)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
                                                              (make-instance 'behavior-player-attack
                                                                :damage 1
                                                                :fire-rate 2
                                                                :pierce 0
                                                                :projectile-velocity 10
-                                                               :projectile-size 0.5))
+                                                               :projectile-size 0.5)
+                                                             (make-instance 'behavior-destructable :hp 10)) ; TODO: change destroy behavior; Display HP in GUI
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
            (test-target (make-game-object :sprite (make-instance 'sprite :static NIL)
                                           :collider (make-instance 'aabb-collider :trigger T)

@@ -18,6 +18,12 @@
            :behavior-simple-movement
            :behavior-simple-movement-move-speed :behavior-simple-movement-stop-distance :behavior-simple-movement-target-position
 
+           :behavior-enemy-melee
+           :behavior-enemy-melee-damage :behavior-enemy-melee-attack-rate :behavior-enemy-melee-attack-range :behavior-enemy-melee-vision-range
+
+           :behavior-enemy-contact
+           :behavior-enemy-contact-damage :behavior-enemy-contact-attack-rate :behavior-enemy-contact-vision-range
+
            :behavior-loading-zone
 
            :behavior-collision-test
@@ -147,6 +153,75 @@
                  (move-distance (max (min (* move-speed delta-time) remaining-move-distance) 0)))
             (when (> move-distance 0)
                   (game-object-move game-object (3d-vectors:v* (3d-vectors:vunit distance-vec) move-distance)))))))
+
+;; Not much use without animations
+(defclass behavior-enemy-melee (behavior)
+    ((damage :initarg :damage
+             :initform 1
+             :accessor behavior-enemy-melee-damage)
+     (attack-rate :initarg :attack-rate
+                  :initform 1
+                  :accessor behavior-enemy-melee-attack-rate)
+     (attack-range :initarg :attack-range
+                   :initform 1
+                   :accessor behavior-enemy-melee-attack-range)
+     (vision-range :initarg :vision-range
+                   :initform 10
+                   :accessor behavior-enemy-melee-vision-range)
+     (cooldown :initform 0)))
+
+(defmethod behavior-update ((behavior behavior-enemy-melee) delta-time game-object)
+  (with-slots (damage attack-rate attack-range vision-range cooldown) behavior
+    (when (> cooldown 0)
+          (decf cooldown delta-time))
+    (let ((player (get-tagged-object 'player)))
+      (when player
+            (let ((player-distance (3d-vectors:vdistance (collider-position (game-object-collider player))
+                                                         (collider-position (game-object-collider game-object)))))
+              ;; Follow player, if player visible
+              (when (<= player-distance vision-range)
+                    (let ((wall (get-tagged-objects-line-of-sight-collisions game-object player 'tiles::tile-wall))
+                          (movement-behavior (get-object-behavior-by-subtype game-object 'behavior-simple-movement)))
+                      (unless wall
+                            (setf (behavior-simple-movement-target-position movement-behavior) (collider-position (game-object-collider player))))))
+              ;; Attack player when in range and attack not on cooldown
+              (when (and (<= player-distance attack-range) (<= cooldown 0))
+                    (setf cooldown (/ 1 attack-rate))
+                    (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage) ; TODO: change destructable behavior -> not always destroy object
+                    ))))))
+
+(defclass behavior-enemy-contact (behavior)
+    ((damage :initarg :damage
+             :initform 1
+             :accessor behavior-enemy-contact-damage)
+     (attack-rate :initarg :attack-rate
+                  :initform 1
+                  :accessor behavior-enemy-contact-attack-rate)
+     (vision-range :initarg :vision-range
+                   :initform 10
+                   :accessor behavior-enemy-contact-vision-range)
+     (cooldown :initform 0)))
+
+(defmethod behavior-update ((behavior behavior-enemy-contact) delta-time game-object)
+  (with-slots (damage attack-rate vision-range cooldown) behavior
+    (when (> cooldown 0)
+          (decf cooldown delta-time))
+    (let ((player (get-tagged-object 'player)))
+      (when player
+            (let ((player-distance (3d-vectors:vdistance (collider-position (game-object-collider player))
+                                                         (collider-position (game-object-collider game-object)))))
+              ;; Follow player, if player visible
+              (when (<= player-distance vision-range)
+                    (let ((wall (get-tagged-objects-line-of-sight-collisions game-object player 'tiles::tile-wall))
+                          (movement-behavior (get-object-behavior-by-subtype game-object 'behavior-simple-movement)))
+                      (unless wall
+                            (setf (behavior-simple-movement-target-position movement-behavior) (collider-position (game-object-collider player))))))
+              ;; Attack player when in contact and attack not on cooldown
+              (let ((player (get-tagged-object-collision game-object 'player)))
+                (when (and player (<= cooldown 0))
+                      (setf cooldown (/ 1 attack-rate))
+                      (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage) ; TODO: change destructable behavior -> not always destroy object
+                      )))))))
 
 (defclass behavior-loading-zone (behavior)
     ((level-tiles :initarg :level-tiles)
