@@ -15,7 +15,7 @@ On windows, the cl-cffi-gtk package may be missing some DLLs. See "gtk dependenc
 
 ## Gameplay
 - Move through randomly generated rooms to find the ladder to the next level
-- Red enemies chase down the player deal damage on contact
+- Red enemies chase down the player and deal damage on contact
 - Purple enemies stay at a distance from the player and shoot projectiles
 - All enemies have 3 HP
 - The player has 10 HP (Displayed at the top left corner of the screen)
