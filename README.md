@@ -14,6 +14,7 @@ On windows, the cl-cffi-gtk package may be missing some DLLs. See "gtk dependenc
   - F1 to immediately load next level
 
 ## Gameplay
+- To start, load "main.lisp"
 - Move through randomly generated rooms to find the ladder to the next level
 - Red enemies chase down the player and deal damage on contact
 - Purple enemies stay at a distance from the player and shoot projectiles
