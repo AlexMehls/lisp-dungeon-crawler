@@ -130,9 +130,16 @@
         (decf cooldown delta-time)
         (when (get-button-hold 1)
               (setf cooldown (/ 1 fire-rate))
-              (let* ((spawn-position (collider-position (game-object-collider game-object))) ; Assumes that player has a collider
+              (let* ((spawn-position (collider-position (game-object-collider game-object)))
                      (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position))))
-                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity '(behaviors::enemy))))))))
+                (game-object-register (make-prefab-object 'prefab-basic-projectile
+                                        spawn-position
+                                        spawn-direction
+                                        projectile-size
+                                        damage pierce
+                                        projectile-velocity
+                                        '(behaviors::enemy)
+                                        *player-projectile-texture*)))))))
 
 ;; Simple movement behavior (no acceleration; no pathfinding; can stop at a distance from the target)
 (defclass behavior-simple-movement (behavior)
@@ -190,8 +197,7 @@
               ;; Attack player when in range and attack not on cooldown
               (when (and (<= player-distance attack-range) (<= cooldown 0))
                     (setf cooldown (/ 1 attack-rate))
-                    (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage) ; TODO: change destructable behavior -> not always destroy object
-                    ))))))
+                    (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage)))))))
 
 (defclass behavior-enemy-contact (behavior)
     ((damage :initarg :damage
@@ -223,8 +229,7 @@
               (let ((player (get-tagged-object-collision game-object 'player)))
                 (when (and player (<= cooldown 0))
                       (setf cooldown (/ 1 attack-rate))
-                      (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage) ; TODO: change destructable behavior -> not always destroy object
-                      )))))))
+                      (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage))))))))
 
 (defclass behavior-enemy-ranged (behavior)
     ((damage :initarg :damage
@@ -266,7 +271,15 @@
                               (setf cooldown (/ 1 attack-rate))
                               (let* ((spawn-position this-object-pos)
                                      (spawn-direction (3d-vectors:vunit (3d-vectors:v- player-pos spawn-position))))
-                                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity '(behaviors::player)))))))))))))
+                                (game-object-register (make-prefab-object 'prefab-basic-projectile
+                                                        spawn-position
+                                                        spawn-direction
+                                                        projectile-size
+                                                        damage
+                                                        pierce
+                                                        projectile-velocity
+                                                        '(behaviors::player)
+                                                        *enemy-projectile-texture*))))))))))))
 
 (defclass behavior-loading-zone (behavior)
     ((level-tiles :initarg :level-tiles)

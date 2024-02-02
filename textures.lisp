@@ -1,6 +1,11 @@
 (defpackage :textures
   (:use :common-lisp :model-matrix-manager)
-  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle* :*enemy-ranged-texture* :*enemy-melee-texture* :*stairs-texture*
+  (:export :*test-texture* :*test-texture2* :*missing-texture*
+           :*test-floor-texture* :*test-wall-texture* :*test-circle*
+           :*enemy-ranged-texture* :*enemy-melee-texture* :*player-texture*
+           :*stairs-texture*
+           :*enemy-projectile-texture* :*player-projectile-texture*
+           
            :load-textures :delete-textures
            :texture-model-matrix-manager
            :send-draw-calls
@@ -261,9 +266,21 @@
                                 :file "textures/enemy_melee.png"))
 (setf *textures* (adjoin *enemy-melee-texture* *textures*))
 
+(defvar *player-texture* (make-instance 'texture
+                                :file "textures/player.png"))
+(setf *textures* (adjoin *player-texture* *textures*))
+
 (defvar *stairs-texture* (make-instance 'texture
                                 :file "textures/stairs.png"))
 (setf *textures* (adjoin *stairs-texture* *textures*))
+
+(defvar *enemy-projectile-texture* (make-instance 'texture
+                                :file "textures/enemy_projectile.png"))
+(setf *textures* (adjoin *enemy-projectile-texture* *textures*))
+
+(defvar *player-projectile-texture* (make-instance 'texture
+                                :file "textures/player_projectile.png"))
+(setf *textures* (adjoin *player-projectile-texture* *textures*))
 
 (defun load-textures ()
   (loop for texture in *textures* do

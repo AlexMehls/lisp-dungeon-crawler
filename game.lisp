@@ -12,6 +12,7 @@
            (area (make-instance 'gtk-gl-area :auto-render T)) ; maybe render manually?
            (fixed-container (gtk-fixed-new))
            (box (gtk-box-new :vertical 1))
+           (background-box (gtk-box-new :vertical 1))
            (fps-counter (gtk-label-new "FPS:"))
            (debug-display (gtk-label-new ""))
            (prev-time (local-time:now))
@@ -24,7 +25,7 @@
            (zoom-level-max 5)
            (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
            (hp-display (gtk-label-new "HP:"))
-           (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
+           (player-object (make-game-object :sprite (make-instance 'sprite :texture *player-texture* :static NIL)
                                             :collider (make-instance 'aabb-collider :trigger T)
                                             :behaviors (list (make-instance 'behavior-player-movement :move-speed 5)
                                                              (make-instance 'behavior-player-attack
@@ -50,10 +51,15 @@
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
-      (gtk-fixed-put fixed-container box 0 0)
+      ;(gtk-fixed-put fixed-container box 0 0)
+      (gtk-fixed-put fixed-container background-box 0 0)
+      (gtk-box-pack-start background-box box)
       (gtk-box-pack-start box fps-counter)
       (gtk-box-pack-start box hp-display)
       (gtk-box-pack-start box debug-display)
+
+      (gtk-widget-override-background-color background-box :normal (make-gdk-rgba :red 1d0 :green 1d0 :blue 1d0 :alpha 1d0))
+      (setf (gtk-container-border-width box) 5)
 
       (gtk-widget-add-events window '(:key-press-mask :key-release-mask :button-press-mask :button-release-mask :pointer-motion-mask :scroll-mask))
       
@@ -128,7 +134,7 @@
                           
                           ;; Rendering
                           (gl:finish)
-                          (gl:clear-color 0.5 0.5 0.5 1.0)
+                          (gl:clear-color 0.1 0.1 0.1 1.0)
                           (gl:clear :color-buffer :depth-buffer)
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))

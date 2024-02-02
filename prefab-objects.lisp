@@ -3,13 +3,13 @@
 
 (in-package :prefab-objects)
 
-(defprefab prefab-basic-projectile (position direction size damage pierce velocity target-tags)
+(defprefab prefab-basic-projectile (position direction size damage pierce velocity target-tags texture)
   (3d-vectors:nvunit direction)
   (make-game-object :sprite (make-instance 'sprite
                               :position position
                               :rotation (atan (- (3d-vectors:vx direction)) (3d-vectors:vy direction))
                               :size (3d-vectors:vec2 size size)
-                              :texture *test-circle*
+                              :texture texture
                               :layer 11
                               :static NIL)
                     :collider (make-instance 'circle-collider :position position :radius (/ size 2) :trigger T)
