@@ -1,15 +1,11 @@
-TODO:
-Change destructable-behavior to support custom "destruction" effects (especially for player)
+NOTES AND IDEAS
 
 level generation
-  !!! Remove test-button for level loading
   more settings (each floor different)
-  enemy spawns in room definition
   multiple end-rooms (+ start rooms?)
   special rooms + limits? -> otherwise spawn specials in any room
   ? prevent generation instead of blocking later -> at least has to connect to existing rooms
   ? weighted room randomness
-  Replace room::tile-type with tiles::tile-type
 
 VFX
   visual effects (flashes on hit) -> add color tint to shader (implement like model-mats)
@@ -21,17 +17,13 @@ VFX
 
 main gameplay
   upgrades
-  enemy behaviors (line-of-sight checks -> add to simple movement as optional condition, pathfinding)
-  ladder(?) to next floor
+  enemy pathfinding
   main menu
   fog-of-war?
   minimap?
   saving? -> simplest solution would be on a per-floor basis (only needs floor counter, resources (e.g. health), random-state(s))
   audio(?)
   modular attacks(?)
-
-collisions with mask (whitelist/blacklist tags) -> enemies should pass through player but not walls
-remove *game-object-sprites*
 
 Optimisations (performance):
 Rendering
@@ -52,5 +44,5 @@ behaviors in separate system?
 
 Known bugs / inconsistencies:
 should collision resolution result in countinuous collision?
-      in general: (consistency) should distance=0 result in collision
+      in general: (consistency) should distance=0 result in collision?
 static sprites added later (stairs object) -> sometimes some sprites get "deleted" (?)
