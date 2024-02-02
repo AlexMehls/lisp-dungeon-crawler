@@ -1,6 +1,6 @@
 (defpackage :textures
   (:use :common-lisp :model-matrix-manager)
-  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle* :*enemy-ranged-texture* :*enemy-melee-texture*
+  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle* :*enemy-ranged-texture* :*enemy-melee-texture* :*stairs-texture*
            :load-textures :delete-textures
            :texture-model-matrix-manager
            :send-draw-calls
@@ -260,6 +260,10 @@
 (defvar *enemy-melee-texture* (make-instance 'texture
                                 :file "textures/enemy_melee.png"))
 (setf *textures* (adjoin *enemy-melee-texture* *textures*))
+
+(defvar *stairs-texture* (make-instance 'texture
+                                :file "textures/stairs.png"))
+(setf *textures* (adjoin *stairs-texture* *textures*))
 
 (defun load-textures ()
   (loop for texture in *textures* do

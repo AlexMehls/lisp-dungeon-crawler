@@ -56,6 +56,6 @@
                     :tags '(behaviors::enemy)))
 
 (defprefab prefab-stairs (position level-tiles generation-random-state)
-  (make-game-object :sprite (make-instance 'sprite :position position :static T)
+  (make-game-object :sprite (make-instance 'sprite :position position :static T :texture *stairs-texture*)
                     :collider (make-instance 'aabb-collider :position position :trigger T)
                     :behaviors (list (make-instance 'behavior-loading-zone :level-tiles level-tiles :generation-random-state generation-random-state))))

@@ -20,6 +20,8 @@
            (base-screen-size 15)
            (zoom-strength 0.1)
            (zoom-level 0)
+           (zoom-level-min -5)
+           (zoom-level-max 5)
            (camera (make-instance 'camera :position (3d-vectors:vec2 0 0) :screen-size base-screen-size))
            (hp-display (gtk-label-new "HP:"))
            (player-object (make-game-object :sprite (make-instance 'sprite :texture *test-texture2* :static NIL)
@@ -28,7 +30,7 @@
                                                              (make-instance 'behavior-player-attack
                                                                :damage 1
                                                                :fire-rate 2
-                                                               :pierce 0
+                                                               :pierce 1
                                                                :projectile-velocity 10
                                                                :projectile-size 0.5)
                                                              (make-instance 'behavior-destructable :hp 10)) ; TODO: change destroy behavior; Display HP in GUI
@@ -37,7 +39,8 @@
            (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (is-fullscreen NIL)
            (level-generation-seed t) ; t = random, otherwise int or simple-array
-           (level-generation-random-state (sb-ext:seed-random-state level-generation-seed)))
+           (level-generation-random-state (sb-ext:seed-random-state level-generation-seed))
+           (debug-enabled NIL))
       
       (setf *active-camera* camera)
 
@@ -75,6 +78,7 @@
                           (setf curr-time (local-time:now))
 
                           (let* ((delta-time (local-time:timestamp-difference curr-time prev-time)))
+                            ;; Time and fps calculation
                             (when (= delta-time 0)
                                 (setf delta-time (/ 1 60)))
                             (queues:qpush fps-vals (/ 1 delta-time))
@@ -88,40 +92,51 @@
                               (setf avg-fps (/ avg-fps (queues:qsize fps-vals)))
                               (gtk-label-set-text fps-counter (format nil "FPS: ~a" (round avg-fps))))
                             
+                            ;; Inputs (not bound to player behavior)
+                            (gtk-label-set-text debug-display "")
+                            
+                            (when (get-key-press "F3")
+                                  (setf debug-enabled (not debug-enabled)))
+                            (when debug-enabled
+                                  (gtk-label-set-text debug-display "[DEBUG ENABLED]"))
+
                             (when (get-key-press "F11")
                                   (if is-fullscreen
                                       (gtk-window-unfullscreen window)
                                       (gtk-window-fullscreen window))
                                   (setf is-fullscreen (not is-fullscreen)))
-                            
-                            (gtk-label-set-text debug-display "")
 
-                            (when (get-button-press 4)
-                                  (load-next-level player-object level-tiles level-generation-random-state)) ; TODO: remove
+                            ;; Debug only actions
+                            (when (and (get-key-press "F1") debug-enabled)
+                                  (load-next-level player-object level-tiles level-generation-random-state))
                             
-                            (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
+                            ;; Updates (game starts to slow down below 30 fps)
+                            (let ((delta-time (min delta-time (/ 1 30))))
                               (game-objects-update *game-objects* delta-time)))
                           
                           (gtk-label-set-text hp-display (format nil "HP: ~a" (behavior-destructable-hp (get-object-behavior-by-subtype player-object 'behavior-destructable))))
 
+                          ;; Camera and zoom
                           (setf (camera-position *active-camera*) (sprite-position (game-object-sprite player-object)))
                           (let ((scroll (get-mouse-scroll)))
-                            (unless (= scroll 0)
-                              (incf zoom-level scroll)
-                              (let ((new-screen-size (* base-screen-size (exp (* (- zoom-level) zoom-strength)))))
-                                (setf (camera-screen-size *active-camera*) new-screen-size))))
-
+                            (incf zoom-level scroll)
+                            (unless debug-enabled
+                              (setf zoom-level (min zoom-level zoom-level-max))
+                              (setf zoom-level (max zoom-level zoom-level-min)))
+                            (let ((new-screen-size (* base-screen-size (exp (* (- zoom-level) zoom-strength)))))
+                              (setf (camera-screen-size *active-camera*) new-screen-size)))
+                          
+                          ;; Rendering
                           (gl:finish)
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (gl:use-program textures::*texture-shader-program*)
-
                             (send-draw-calls vp-mat)
-
                             (gl:use-program 0))
                           
+                          ;; Bookkeeping
                           (setf *keys-pressed* NIL)
                           (setf *buttons-pressed* NIL)
                           (setf *scroll* 0)
