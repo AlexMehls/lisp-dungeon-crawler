@@ -62,11 +62,23 @@
             (setf (first entry) (- size (first entry) (second entry))))
     new-connection))
 
+(defmacro rotated-indices (i j h w rotation)
+  `(let ((new-i ,i)
+         (new-j ,j))
+     (case ,rotation
+       (1 (setf new-i ,j)
+           (setf new-j (- ,w ,i 1)))
+       (2 (setf new-i (- ,h ,i 1))
+           (setf new-j (- ,w ,j 1)))
+       (3 (setf new-i (- ,h ,j 1))
+           (setf new-j ,i)))
+     (values new-i new-j)))
+
 ;; Creates a rotated version of the supplied room
 ;; Rotation is an integer value (0 = no rotation, then rotated clockwise)
 (defmethod copy-room-tiles-rotated ((room-obj room-tiles) rotation)
   (setf rotation (mod rotation 4))
-  (with-slots (keys layout connections) room-obj
+  (with-slots (keys layout connections game-objects) room-obj
     (let ((new-keys (alexandria:copy-hash-table keys))
           (new-layout (make-array (array-dimensions layout)))
           (new-connections (make-array (array-dimensions connections)))
@@ -75,15 +87,7 @@
       ;; Rotated copy of layout
       (dotimes (i h)
         (dotimes (j w)
-          (let ((new-i i)
-                (new-j j))
-            (case rotation
-              (1 (setf new-i j)
-                 (setf new-j (- w i 1)))
-              (2 (setf new-i (- h i 1))
-                 (setf new-j (- w j 1)))
-              (3 (setf new-i (- h j 1))
-                 (setf new-j i)))
+          (multiple-value-bind (new-i new-j) (rotated-indices i j h w rotation)
             (setf (aref new-layout new-i new-j) (aref layout i j)))))
 
       ;; Shifted (and possibly flipped) copy of connections
@@ -94,7 +98,11 @@
               (setf (aref new-connections (mod (+ i rotation) 4)) (inverted-connection (aref connections i) side-length))    
               (setf (aref new-connections (mod (+ i rotation) 4)) (alexandria:copy-sequence 'list (aref connections i))))))
       
-      (make-instance 'room-tiles :keys new-keys :layout new-layout :connections new-connections))))
+      ;; Rotated copy of objects
+      (let ((new-game-objects (loop for entry in game-objects collect
+                                      (multiple-value-bind (new-i new-j) (rotated-indices (first entry) (second entry) h w rotation)
+                                        (list new-i new-j (third entry))))))
+        (make-instance 'room-tiles :keys new-keys :layout new-layout :connections new-connections :game-objects new-game-objects)))))
 
 ;; Loops over "layout" array while looking up the key value in the "keys" hash-table
 (defmacro loop-room-tiles (room-tiles i j h w tile-type &rest body)

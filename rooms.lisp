@@ -96,7 +96,9 @@
                                                                     (W W W W W W W W W W W W W W W W)))
                    :connections (make-connections-array :top '((7 2))
                                                         :left '((7 2))
-                                                        :right '((7 2)))))
+                                                        :right '((7 2)))
+                           :game-objects '((13 2 room::enemy-ranged)
+                                           (13 13 room::enemy-ranged))))
 
 (defvar *room-t-junction-not-L* (copy-room-tiles-rotated *room-t-junction-not-B* 1))
 (defvar *room-t-junction-not-T* (copy-room-tiles-rotated *room-t-junction-not-B* 2))

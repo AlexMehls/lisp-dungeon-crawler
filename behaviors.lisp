@@ -24,6 +24,9 @@
            :behavior-enemy-contact
            :behavior-enemy-contact-damage :behavior-enemy-contact-attack-rate :behavior-enemy-contact-vision-range
 
+           :behavior-enemy-ranged
+           :behavior-enemy-ranged-damage :behavior-enemy-ranged-attack-rate :behavior-enemy-ranged-vision-range :behavior-enemy-ranged-pierce :behavior-enemy-ranged-projectile-velocity :behavior-enemy-ranged-projectile-size
+
            :behavior-loading-zone
 
            :behavior-collision-test
@@ -129,7 +132,7 @@
               (setf cooldown (/ 1 fire-rate))
               (let* ((spawn-position (collider-position (game-object-collider game-object))) ; Assumes that player has a collider
                      (spawn-direction (3d-vectors:vunit (3d-vectors:v- (get-mouse-world-pos) spawn-position))))
-                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity)))))))
+                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity '(behaviors::enemy))))))))
 
 ;; Simple movement behavior (no acceleration; no pathfinding; can stop at a distance from the target)
 (defclass behavior-simple-movement (behavior)
@@ -154,7 +157,7 @@
             (when (> move-distance 0)
                   (game-object-move game-object (3d-vectors:v* (3d-vectors:vunit distance-vec) move-distance)))))))
 
-;; Not much use without animations
+;; Not much use without animations -> use behavior-enemy-contact instead
 (defclass behavior-enemy-melee (behavior)
     ((damage :initarg :damage
              :initform 1
@@ -222,6 +225,48 @@
                       (setf cooldown (/ 1 attack-rate))
                       (behavior-destructable-damage (get-object-behavior-by-subtype player 'behavior-destructable) player damage) ; TODO: change destructable behavior -> not always destroy object
                       )))))))
+
+(defclass behavior-enemy-ranged (behavior)
+    ((damage :initarg :damage
+             :initform 1
+             :accessor behavior-enemy-ranged-damage)
+     (attack-rate :initarg :attack-rate
+                  :initform 1
+                  :accessor behavior-enemy-ranged-attack-rate)
+     (vision-range :initarg :vision-range
+                   :initform 10
+                   :accessor behavior-enemy-ranged-vision-range)
+     (pierce :initarg :pierce
+             :initform 0
+             :accessor behavior-enemy-ranged-pierce)
+     (projectile-velocity :initarg :projectile-velocity
+                          :initform 5
+                          :accessor behavior-enemy-ranged-projectile-velocity)
+     (projectile-size :initarg :projectile-size
+                      :initform 0.5
+                      :accessor behavior-enemy-ranged-projectile-size)
+     (cooldown :initform 0)))
+
+(defmethod behavior-update ((behavior behavior-enemy-ranged) delta-time game-object)
+  (with-slots (damage attack-rate vision-range pierce projectile-velocity projectile-size cooldown) behavior
+    (when (> cooldown 0)
+          (decf cooldown delta-time))
+    (let ((player (get-tagged-object 'player)))
+      (when player
+            (let* ((player-pos (collider-position (game-object-collider player)))
+                   (this-object-pos (collider-position (game-object-collider game-object)))
+                   (player-distance (3d-vectors:vdistance player-pos this-object-pos)))
+              ;; Follow and attack player, if player visible
+              (when (<= player-distance vision-range)
+                    (let ((wall (get-tagged-objects-line-of-sight-collisions game-object player 'tiles::tile-wall))
+                          (movement-behavior (get-object-behavior-by-subtype game-object 'behavior-simple-movement)))
+                      (unless wall
+                        (setf (behavior-simple-movement-target-position movement-behavior) player-pos)
+                        (when (<= cooldown 0)
+                              (setf cooldown (/ 1 attack-rate))
+                              (let* ((spawn-position this-object-pos)
+                                     (spawn-direction (3d-vectors:vunit (3d-vectors:v- player-pos spawn-position))))
+                                (game-object-register (make-prefab-object 'prefab-basic-projectile spawn-position spawn-direction projectile-size damage pierce projectile-velocity '(behaviors::player)))))))))))))
 
 (defclass behavior-loading-zone (behavior)
     ((level-tiles :initarg :level-tiles)

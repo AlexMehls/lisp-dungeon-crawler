@@ -33,51 +33,17 @@
                                                                :projectile-size 0.5)
                                                              (make-instance 'behavior-destructable :hp 10)) ; TODO: change destroy behavior; Display HP in GUI
                                             :tags '(behaviors::player))) ; TODO: better solution for tags?
-           (test-target (make-game-object :sprite (make-instance 'sprite :static NIL)
-                                          :collider (make-instance 'aabb-collider :trigger T)
-                                          :behaviors (list (make-instance 'behavior-destructable :hp 3))
-                                          :tags '(behaviors::enemy)))
-           (test-target-2 (make-game-object :sprite (make-instance 'sprite :static NIL)
-                                          :collider (make-instance 'aabb-collider :trigger T)
-                                          :behaviors (list (make-instance 'behavior-destructable :hp 3))
-                                          :tags '(behaviors::enemy)))
 
            (level-tiles (make-tile-array 256 256 (3d-vectors:vec2 -128 -128)))
            (is-fullscreen NIL)
            (level-generation-seed t) ; t = random, otherwise int or simple-array
-           (level-generation-random-state (sb-ext:seed-random-state level-generation-seed))
-           (test-enemy (make-game-object :sprite (make-instance 'sprite :static NIL)
-                                          :collider (make-instance 'aabb-collider :trigger T)
-                                          :behaviors (list (make-instance 'behavior-destructable :hp 3)
-                                                          (make-instance 'behavior-simple-movement :stop-distance 2))
-                                          :tags '(behaviors::enemy))))
+           (level-generation-random-state (sb-ext:seed-random-state level-generation-seed)))
       
       (setf *active-camera* camera)
 
       (load-next-level player-object level-tiles level-generation-random-state)
 
-      (game-object-set-pos test-target (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -2 0)))
-      (game-object-register test-target)
-      (game-object-set-pos test-target-2 (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 -4 0)))
-      (game-object-register test-target-2)
-      (game-object-set-pos test-enemy (3d-vectors:v+ (collider-position (game-object-collider player-object)) (3d-vectors:vec2 4 0)))
-      (game-object-register test-enemy)
-
-      (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 2) :layer -1 :static T)
-                                              :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 2 2))
-                                              :behaviors (list (make-instance 'behavior-collision-test :message "Collision AABB" :label debug-display))))
-      (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 -2 2) :texture *test-circle* :layer -1  :static NIL)
-                                              :collider (make-instance 'circle-collider :position (3d-vectors:vec2 -2 2))
-                                              :behaviors (list (make-instance 'behavior-collision-test :message "Collision Circle" :label debug-display :destroy T))))
-      (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 2 -2) :rotation 1 :layer -1 :static T)
-                                              :collider (make-instance 'rectangle-collider :position (3d-vectors:vec2 2 -2) :rotation 1)
-                                              :behaviors (list (make-instance 'behavior-collision-test :message "Collision Rectangle" :label debug-display))))
-      (game-object-register (make-game-object :sprite (make-instance 'sprite :position (3d-vectors:vec2 -2 -2) :layer -1 :static T)
-                                              :collider (make-instance 'aabb-collider :position (3d-vectors:vec2 -2 -2) :trigger T)
-                                              :behaviors (list (make-instance 'behavior-collision-test :message "Collision AABB 2" :label debug-display))))
-
       (setf (gtk-gl-area-has-depth-buffer area) T)
-      ;(gtk-container-add window area)
       (gtk-container-add window overlay)
       (gtk-container-add overlay area)
       (gtk-overlay-add-overlay overlay fixed-container)
@@ -107,8 +73,6 @@
                         (lambda (area context)
                           (declare (ignore context))
                           (setf curr-time (local-time:now))
-                          ;(format t "Time since last render: ~ams~%" (* 1000 (local-time:timestamp-difference curr-time prev-time)))
-                          ;(format t "FPS: ~a~%" (/ 1 (local-time:timestamp-difference curr-time prev-time)))
 
                           (let* ((delta-time (local-time:timestamp-difference curr-time prev-time)))
                             (when (= delta-time 0)
@@ -130,30 +94,10 @@
                                       (gtk-window-fullscreen window))
                                   (setf is-fullscreen (not is-fullscreen)))
                             
-                            ;(when (get-button-press 1)
-                            ;      (format t "Left Button!~%"))
-                            ;(when (get-button-press 2)
-                            ;      (format t "Right Button!~%"))
-                            ;(when (get-button-press 3)
-                            ;      (format t "Middle Button!~%"))
-                            ;(let ((scroll (get-mouse-scroll)))
-                            ;  (unless (= scroll 0)
-                            ;      (format t "Scrolled: ~a~%" scroll)))
-                            
                             (gtk-label-set-text debug-display "")
-
-                            ;(let ((mouse-pos (get-mouse-world-pos)))
-                            ;  (gtk-label-set-text debug-display (concatenate 'string
-                            ;                                      "Mouse pos: "
-                            ;                                      (write-to-string (3d-vectors:vx mouse-pos))
-                            ;                                      ", "
-                            ;                                      (write-to-string (3d-vectors:vy mouse-pos)))))
 
                             (when (get-button-press 4)
                                   (load-next-level player-object level-tiles level-generation-random-state)) ; TODO: remove
-                            (when (get-button-press 5)
-                                  (setf (behavior-simple-movement-target-position (get-object-behavior-by-subtype test-enemy 'behavior-simple-movement))
-                                        (collider-position (game-object-collider player-object)))) ; TODO: remove
                             
                             (let ((delta-time (min delta-time (/ 1 30)))) ; game starts to slow down below 30 fps
                               (game-objects-update *game-objects* delta-time)))
@@ -170,10 +114,6 @@
                           (gl:finish)
                           (gl:clear-color 0.5 0.5 0.5 1.0)
                           (gl:clear :color-buffer :depth-buffer)
-                          ;(gl:cull-face :back)
-                          ;(gl:enable :depth-test)
-                          ;(gl:depth-func :less)
-                          ;(gl:depth-mask :true)
                           
                           (let ((vp-mat (camera-view-projection-matrix *active-camera*)))
                             (gl:use-program textures::*texture-shader-program*)
@@ -186,7 +126,7 @@
                           (setf *buttons-pressed* NIL)
                           (setf *scroll* 0)
                           (setf prev-time curr-time)
-                          (gtk-gl-area-queue-render area) ; maybe render manually? -> gdk frame clock not working
+                          (gtk-gl-area-queue-render area)
                           NIL))
       (g-signal-connect area "resize"
                         (lambda (area width height)
@@ -206,49 +146,33 @@
                           (let ((keyval (gdk-event-key-keyval event)))
                             (unless (member keyval *keys-held*)
                               (setf *keys-pressed* (adjoin keyval *keys-pressed*)))
-                            (setf *keys-held* (adjoin keyval *keys-held*)))
-                          ;(format t "Event: ~a~%" event)
-                          ;(format t "Keys: ~a~%" *keys-held*)
-                          ))
+                            (setf *keys-held* (adjoin keyval *keys-held*)))))
       (g-signal-connect window "key_release_event"
                         (lambda (widget event)
                           (declare (ignore widget))
-                          (setf *keys-held* (set-difference *keys-held* `(,(gdk-event-key-keyval event))))
-                          ;(format t "Event: ~a~%" event)
-                          ;(when (= (gdk-event-key-keyval event))
-                          ;    (format t "pressed space~%"))
-                          ;(format t "Keys: ~a~%" *keys-held*)
-                          ))
+                          (setf *keys-held* (set-difference *keys-held* `(,(gdk-event-key-keyval event))))))
       (g-signal-connect window "button_press_event"
                         (lambda (widget event)
                           (declare (ignore widget))
                           (let ((button (gdk-event-button-button event)))
                             (unless (member button *buttons-held*)
                               (setf *buttons-pressed* (adjoin button *buttons-pressed*)))
-                            (setf *buttons-held* (adjoin button *buttons-held*)))
-                          ;(format t "Event: ~a~%" event)
-                          ))
+                            (setf *buttons-held* (adjoin button *buttons-held*)))))
       (g-signal-connect window "button_release_event"
                         (lambda (widget event)
                           (declare (ignore widget))
-                          (setf *buttons-held* (set-difference *buttons-held* `(,(gdk-event-button-button event))))
-                          ;(format t "Event: ~a~%" event)
-                          ))
+                          (setf *buttons-held* (set-difference *buttons-held* `(,(gdk-event-button-button event))))))
       (g-signal-connect window "scroll_event"
                         (lambda (widget event)
                           (declare (ignore widget))
                           (case (gdk-event-scroll-direction event)
                             (:up (incf *scroll*))
-                            (:down (decf *scroll*)))
-                          ;(format t "Event: ~a~%" event)
-                          ))
+                            (:down (decf *scroll*)))))
       (g-signal-connect window "motion_notify_event"
                         (lambda (widget event)
                           (declare (ignore widget))
                           (setf *mouse-x* (gdk-event-motion-x event))
-                          (setf *mouse-y* (gdk-event-motion-y event))
-                          ;(format t "Event: ~a~%" event)
-                          ))
+                          (setf *mouse-y* (gdk-event-motion-y event))))
       (gtk-widget-show-all window)))
   
   ;(sleep 0.001) ; wait until gtk loop starts

@@ -103,6 +103,7 @@
   (let ((obj (case type
                (room::stairs (make-prefab-object 'prefab-stairs position tile-array random-state))
                (room::enemy-contact (make-prefab-object 'prefab-basic-contact-enemy position))
+               (room::enemy-ranged (make-prefab-object 'prefab-basic-ranged-enemy position))
                (otherwise (format t "Unknown spawnable object: ~a~%" type)))))
     (when obj
           (game-object-register obj))))

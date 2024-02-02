@@ -104,6 +104,11 @@
               (gl:buffer-data :array-buffer :dynamic-draw (gl::make-gl-array-from-pointer (gl::null-pointer) :float total-capacity))
               (setf buffer-size total-capacity)))
 
+      ;(format t "Buffer composition: ~a/~a static, ~a/~a dynamic (at ~a), ~a/~a total~%"
+      ;  (simple-array-vector-size static-matrices) (simple-array-vector-capacity static-matrices)
+      ;  (simple-array-vector-size dynamic-matrices) (simple-array-vector-capacity dynamic-matrices) (simple-array-vector-size static-matrices)
+      ;  (model-matrix-manager-total-size obj) (model-matrix-manager-total-capacity obj))
+
       ;; Update static data if necessary
       (when (or static-needs-update reallocation-needed)
             (with-slots (data size) static-matrices

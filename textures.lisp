@@ -1,6 +1,6 @@
 (defpackage :textures
   (:use :common-lisp :model-matrix-manager)
-  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle*
+  (:export :*test-texture* :*test-texture2* :*missing-texture* :*test-floor-texture* :*test-wall-texture* :*test-circle* :*enemy-ranged-texture* :*enemy-melee-texture*
            :load-textures :delete-textures
            :texture-model-matrix-manager
            :send-draw-calls
@@ -107,6 +107,7 @@
   ;(gl:disable :texture-2d)
   (gl:delete-program *texture-shader-program*))
 
+(defvar *textures* '())
 (defvar *loaded-textures* '())
 
 (defclass texture ()
@@ -230,37 +231,43 @@
 
 (defvar *test-texture* (make-instance 'texture
                          :file "textures/test.png"))
+(setf *textures* (adjoin *test-texture* *textures*))
 
 (defvar *test-texture2* (make-instance 'texture
                           :file "textures/test2.png"))
+(setf *textures* (adjoin *test-texture2* *textures*))
 
 (defvar *missing-texture* (make-instance 'texture
                             :file "textures/missing_texture.png"))
+(setf *textures* (adjoin *missing-texture* *textures*))
 
 (defvar *test-floor-texture* (make-instance 'texture
                                :file "textures/test_floor.png"))
+(setf *textures* (adjoin *test-floor-texture* *textures*))
 
 (defvar *test-wall-texture* (make-instance 'texture
                               :file "textures/test_wall.png"))
+(setf *textures* (adjoin *test-wall-texture* *textures*))
 
 (defvar *test-circle* (make-instance 'texture
                         :file "textures/circle.png"))
+(setf *textures* (adjoin *test-circle* *textures*))
+
+(defvar *enemy-ranged-texture* (make-instance 'texture
+                                 :file "textures/enemy_ranged.png"))
+(setf *textures* (adjoin *enemy-ranged-texture* *textures*))
+
+(defvar *enemy-melee-texture* (make-instance 'texture
+                                :file "textures/enemy_melee.png"))
+(setf *textures* (adjoin *enemy-melee-texture* *textures*))
 
 (defun load-textures ()
-  (texture-load *test-texture*)
-  (texture-load *missing-texture*)
-  (texture-load *test-texture2*)
-  (texture-load *test-floor-texture*)
-  (texture-load *test-wall-texture*)
-  (texture-load *test-circle*))
+  (loop for texture in *textures* do
+          (texture-load texture)))
 
 (defun delete-textures ()
-  (texture-delete *test-texture*)
-  (texture-delete *missing-texture*)
-  (texture-delete *test-texture2*)
-  (texture-delete *test-floor-texture*)
-  (texture-delete *test-wall-texture*)
-  (texture-delete *test-circle*))
+  (loop for texture in *textures* do
+          (texture-delete texture)))
 
 (defun send-draw-calls (vp-matrix)
   (loop for texture in *loaded-textures*
